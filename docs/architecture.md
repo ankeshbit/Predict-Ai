@@ -57,7 +57,8 @@ graph TD
 - **Decision**: Ingestion and scoring are handled via a database-backed `jobs` table combined with FastAPI `BackgroundTasks`. Clients poll `GET /api/v1/jobs/{id}` for completion status. No Redis or Celery broker is required for the MVP.
 
 ### ADR-05: Model Bundle Storage & Distribution Strategy
-- **Context**: Model bundles consist of scikit-learn / XGBoost estimators (`.joblib`), anomaly models, preprocessors, feature configurations (`feature_config.json`), model cards (`model_card.json`), and evaluation metrics (`evaluations.json`). In FD001, each bundle is compact (~2 MB to 10 MB total).
+- **Context**: Model bundles consist of scikit-learn / XGBoost estimators (`.joblib`), anomaly models, preprocessors, feature configurations (`feature_config.yaml`), model cards (`model_card.json`), and evaluation metrics (`evaluation.json`).
 - **Decision**:
-  - **MVP / Small Bundles**: The active production model bundle is un-ignored and tracked directly in Git under `backend/model_artifacts/` (excluding staging `.zip` and `.tar.gz` archives). This ensures local development, CI test suites, and Docker builds operate completely self-contained without external network egress or GitHub token configuration.
-  - **Release Distribution Alternative**: For production enterprise builds where Git repository size must be strictly minimized, bundles can be uploaded as GitHub Release assets and downloaded at Docker build time via `curl -sL https://github.com/<org>/<repo>/releases/download/<tag>/model_bundle_<version>.zip` with checksum validation against `bundle_manifest.json`.
+  - Verify bundle size once produced; use Git LFS or a GitHub Release download if >50 MB.
+  - For standard compact bundles (<=50 MB), the active production model bundle is un-ignored and tracked directly in Git under `backend/model_artifacts/` (excluding staging `.zip` and `.tar.gz` archives). This ensures local development, CI test suites, and Docker builds operate completely self-contained without external network egress or GitHub token configuration.
+  - If a bundle exceeds 50 MB, it must be uploaded to a GitHub Release or Git LFS, and downloaded at Docker build time via `curl -sL https://github.com/<org>/<repo>/releases/download/<tag>/model_bundle_<version>.zip` with checksum validation against `manifest.json`.

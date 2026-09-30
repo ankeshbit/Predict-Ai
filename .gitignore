@@ -57,8 +57,8 @@ coverage.xml
 *.cover
 
 # Model Bundles & Large Datasets
-# Active bundles (<15MB) are tracked directly in Git for self-contained CI, local dev, and Docker builds.
-# Large staging archives (.zip, .tar.gz) and raw data are ignored.
+# Verify bundle size once produced; use Git LFS/Release if >50MB.
+# Staging archives (.zip, .tar.gz) and raw data are ignored.
 backend/model_artifacts/*.zip
 backend/model_artifacts/*.tar.gz
 !backend/model_artifacts/**

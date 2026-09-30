@@ -4,9 +4,11 @@
 
 | Component | Target Version | Supported Range | Current Host / Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `3.11` / `3.12` | `3.10` – `3.12` | **Python 3.10.0 (Host Deviation)** | Host tests executed on Python 3.10.0. Will reconcile with Colab runtime output. |
+| **Python** | `3.11` / `3.12` | `3.10` – `3.12` | **Python 3.10.0 (Host Deviation)** | Host tests executed on Python 3.10.0. Dockerfile uses `python:3.10-slim`, ruff uses `target-version = "py310"`. Final pins and container base image depend strictly on the Colab environment output below. |
 | **Node.js** | `20.x` | `18.x` – `22.x` | `20.x` (Local) | Frontend build & test environment |
 | **PostgreSQL** | `16.x` | `15.x` – `16.x` | Neon Serverless | Port 6543 pooled (runtime), 5432 direct (migrations) |
+
+> **IMPORTANT**: Final pins for Python, `ml/constraints.txt`, and Dockerfile depend on the Colab `00_environment_check` output. Once pasted below, all target versions will be reconciled to prevent training/serving skew.
 
 ---
 
