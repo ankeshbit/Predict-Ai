@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdm-core"
+version = "0.1.0"
+description = "Core predictive maintenance library shared between Colab and Backend runtime"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.0",
+    "pandas>=2.2.0",
+    "scipy>=1.13.0",
+    "scikit-learn>=1.4.0",
+    "xgboost>=2.0.0",
+    "shap>=0.45.0",
+    "joblib>=1.4.0",
+    "pyyaml>=6.0.1",
+    "pydantic>=2.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "ruff>=0.4.4",
+    "mypy>=1.10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pdm_core*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

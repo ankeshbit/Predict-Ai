@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # Local throwaway PostgreSQL instance for running tests and offline development
+  # (Production runs against serverless Neon PostgreSQL)
+  test-postgres:
+    image: postgres:16-alpine
+    container_name: predict_ai_test_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: predict_ai_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - test_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  test_pgdata:
+    driver: local
