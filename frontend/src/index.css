@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-app: #0e131b;
+    --bg-surface: #141a24;
+    --bg-surface-elevated: #1a2230;
+    --bg-surface-hover: #1f2838;
+    --border-subtle: #1c2433;
+    --border-base: #242e40;
+    --border-strong: #334158;
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --accent-blue: #2563eb;
+    --accent-blue-hover: #1d4ed8;
+    
+    --status-healthy: #10b981;
+    --status-warning: #f59e0b;
+    --status-critical: #ef4444;
+    --status-info: #3b82f6;
+  }
+
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Engineering numbers & metrics formatting */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Custom subtle engineering scrollbars */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0e131b;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #242e40;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334158;
+  }
+}
