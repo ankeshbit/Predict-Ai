@@ -13,6 +13,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.datasets import router as datasets_router
+from app.api.v1.jobs import router as jobs_router
 from app.api.v1.machines import router as machines_router
 from app.core.config import settings
 from app.core.db import engine
@@ -92,6 +94,8 @@ async def security_and_logging_middleware(request: Request, call_next):
 # API Routers
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(machines_router, prefix="/api/v1")
+app.include_router(datasets_router, prefix="/api/v1")
+app.include_router(jobs_router, prefix="/api/v1")
 
 
 @app.get("/health", response_model=HealthStatus, tags=["System"])
