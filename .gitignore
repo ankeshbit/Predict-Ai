@@ -67,6 +67,10 @@ backend/model_artifacts/**/*.tar.gz
 database/sample_data/*.raw
 *.tar.gz
 
+# Secure staging uploads (ephemeral, never commit)
+backend/staging_uploads/
+backend/backend/staging_uploads/
+
 # Colab and Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
