@@ -7,12 +7,21 @@ import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.v1.auth import router as auth_router
+from app.api.v1.machines import router as machines_router
 from app.core.config import settings
 from app.core.db import engine
+from app.core.errors import (
+    AppError,
+    app_error_handler,
+    generic_exception_handler,
+    validation_error_handler,
+)
 from app.core.logging import setup_logging
 from app.schemas.common import HealthStatus
 
@@ -35,6 +44,11 @@ app = FastAPI(
     docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
+
+# Exception Handlers
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(Exception, generic_exception_handler)
 
 # CORS Middleware
 app.add_middleware(
@@ -68,11 +82,16 @@ async def security_and_logging_middleware(request: Request, call_next):
                 "error": {
                     "code": "INTERNAL_SERVER_ERROR",
                     "message": "An unexpected error occurred. Please contact system administration.",
-                    "details": str(e) if settings.DEBUG else None
+                    "details": str(e) if settings.DEBUG else None,
                 }
             },
-            headers={"X-Request-ID": request_id}
+            headers={"X-Request-ID": request_id},
         )
+
+
+# API Routers
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(machines_router, prefix="/api/v1")
 
 
 @app.get("/health", response_model=HealthStatus, tags=["System"])

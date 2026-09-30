@@ -1,4 +1,41 @@
-"""SQLAlchemy ORM models package"""
-from app.models.base import Base
+"""
+Database models export for Predict-Ai backend
+"""
 
-__all__ = ["Base"]
+from app.models.entities import (
+    Alert,
+    AlertRule,
+    Anomaly,
+    AuditLog,
+    Dataset,
+    DatasetCompatibilityCheck,
+    HealthIndicatorConfig,
+    Job,
+    Machine,
+    MaintenanceRecord,
+    ModelEvaluation,
+    ModelVersion,
+    Prediction,
+    SensorReading,
+    Setting,
+    User,
+)
+
+__all__ = [
+    "Alert",
+    "AlertRule",
+    "Anomaly",
+    "AuditLog",
+    "Dataset",
+    "DatasetCompatibilityCheck",
+    "HealthIndicatorConfig",
+    "Job",
+    "Machine",
+    "MaintenanceRecord",
+    "ModelEvaluation",
+    "ModelVersion",
+    "Prediction",
+    "SensorReading",
+    "Setting",
+    "User",
+]
