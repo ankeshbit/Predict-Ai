@@ -14,7 +14,7 @@ from pathlib import Path
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "database" / "sample_data"
 SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
-def generate_compatible_sample(filename: str = "compatible_fd001_sample.csv"):
+def generate_compatible_sample(filename: str = "compatible_fd001_synthetic_test_fixture.csv"):
     np.random.seed(42)
     rows = []
     # 2 engines, 45 cycles each
@@ -38,7 +38,7 @@ def generate_compatible_sample(filename: str = "compatible_fd001_sample.csv"):
     df.to_csv(SAMPLE_DIR / filename, index=False)
     print(f"Generated {SAMPLE_DIR / filename} ({len(df)} rows)")
 
-def generate_perturbed_sample(filename: str = "perturbed_fd001_sample.csv"):
+def generate_perturbed_sample(filename: str = "perturbed_fd001_synthetic_test_fixture.csv"):
     np.random.seed(101)
     rows = []
     for unit in [10]:
@@ -62,7 +62,7 @@ def generate_perturbed_sample(filename: str = "perturbed_fd001_sample.csv"):
     df.to_csv(SAMPLE_DIR / filename, index=False)
     print(f"Generated {SAMPLE_DIR / filename} ({len(df)} rows)")
 
-def generate_incompatible_sample(filename: str = "incompatible_ai4i_sample.csv"):
+def generate_incompatible_sample(filename: str = "incompatible_ai4i_synthetic_test_fixture.csv"):
     # AI4I 2020 schema
     df = pd.DataFrame({
         "UDI": [1, 2, 3, 4, 5],
@@ -79,6 +79,13 @@ def generate_incompatible_sample(filename: str = "incompatible_ai4i_sample.csv")
     print(f"Generated {SAMPLE_DIR / filename} ({len(df)} rows)")
 
 if __name__ == "__main__":
+    # Clean up obsolete non-suffixed files if present
+    for old_file in ["compatible_fd001_sample.csv", "perturbed_fd001_sample.csv", "incompatible_ai4i_sample.csv"]:
+        old_path = SAMPLE_DIR / old_file
+        if old_path.exists():
+            old_path.unlink()
+            print(f"Removed legacy file {old_path}")
+
     generate_compatible_sample()
     generate_perturbed_sample()
     generate_incompatible_sample()

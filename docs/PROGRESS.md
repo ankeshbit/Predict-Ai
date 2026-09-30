@@ -30,5 +30,15 @@ This document tracks completed phases, architectural decisions, and open questio
 
 ---
 
-## Open Questions & Clarifications
-*(None currently blocking. Ready for Phase 1 execution upon approval).*
+## Pre-Phase 1 Action Items Completed
+1. **Enhanced CI Guardrail**: `scripts/check_guardrails.py` now scans `frontend/src` (including `mockData`), `backend/app`, and `ml/src/pdm_core` for physical sensor terms (`thermal`, `temperature`, `vibration`, `pressure`, `motor`). Fails unless explicitly registered under `ALLOWLIST_PHASE_6_TODO`.
+2. **Environment Matrix & Python Reconcile**: Documented local test environment deviation (Python 3.10.0 host vs planned 3.11/3.12). Pinned `numpy==1.26.4` to prevent binary incompatibility with scikit-learn 1.4.2 and XGBoost 2.0.3 under NumPy 2.x.
+3. **Configurable DB Timeout**: Added `DB_CONNECT_TIMEOUT` env var (defaults to 10s for Neon cold-starts, overridable to 2s in tests).
+4. **Model Bundle Storage**: ADR-05 established. Active production model bundles (`.joblib`, `.json`, `.yaml`) are un-ignored and tracked directly in Git under `backend/model_artifacts/` for self-contained CI and Docker builds.
+5. **Sample Data Provenance**: Confirmed all CSVs in `database/sample_data/` are synthetic test fixtures. Renamed to `*_synthetic_test_fixture.csv` and documented in `docs/datasets.md`.
+6. **PRD Alignment**: Confirmed `docs/PRD.md` sections match PRD v3.0, including §8.4 Telemetry Schema and §26 Definition of Done.
+
+---
+
+## Open Questions & Awaiting Gate Trigger
+- Awaiting user command **"Go"** to initiate Phase 1 (`pdm_core` package and Colab notebooks).

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Neon PostgreSQL database connections
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test"
     DATABASE_URL_DIRECT: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test"
+    DB_CONNECT_TIMEOUT: int = 10  # Seconds; ~10s for Neon cold start, override to 2 in tests
 
     # CORS configuration
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"

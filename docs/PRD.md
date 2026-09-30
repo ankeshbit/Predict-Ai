@@ -115,3 +115,25 @@ If any check fails, the dataset is marked `rejected_incompatible`, scoring retur
 2. Predictions are statistical probabilities over a finite horizon $H$; they do not guarantee machine survival or pinpoint exact mechanical failure moments.
 3. Recommendations require qualified human engineer authorization before work orders are issued.
 4. Public benchmark demonstrations (C-MAPSS FD001) do not represent certified field deployments for flight hardware.
+
+---
+
+## 9. Telemetry Schema & Mapping Contract (PRD §8.4)
+- **C-MAPSS Canonical Channels**:
+  - Identifiers: `unit_id`, `cycle`, `op_setting_1`...`op_setting_3`, `sensor_1`...`sensor_21`.
+  - No physical semantics or invented engineering units (`no physical_meaning`).
+- **Schema Mapping Hash (`schema_mapping_hash`)**:
+  - Deterministic SHA-256 hash of mapped source to canonical column bindings.
+  - Recorded in dataset versioning and immutable prediction lineage.
+
+---
+
+## 10. Definition of Done & System Acceptance (PRD §26)
+A release is accepted only when an end-to-end user journey succeeds in the deployed environment without local setup:
+1. **Authentication**: Admin and Engineer login with JWT session issuance and server-enforced RBAC.
+2. **Seeded Demo Fleet**: First-run view pre-populated with held-out C-MAPSS FD001 test engines scored deterministically by real model bundles.
+3. **Machine Workstation**: Telemetry inspection, rolling anomaly status, calibrated failure probability ($P(\text{Fail} \le H)$), explainability attribution, and transparent lineage (*"How was this prediction generated?"*).
+4. **Human Decision Loop**: Alert acknowledge -> maintenance action entry (auto machine status toggle to `maintenance`) -> outcome logging (status restored to `active`).
+5. **Data Onboarding**: CSV upload -> column mapping -> validation report.
+6. **Compatibility Enforcement**: Compatible data scored successfully; incompatible data (e.g. AI4I) strictly blocked with `409 Conflict (DATASET_INCOMPATIBLE)` and Expected/Found/How-to-fix report.
+7. **Model Performance**: Metrics loaded strictly from `model_evaluations`; zero fabricated literals.

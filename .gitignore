@@ -56,11 +56,14 @@ nosetests.xml
 coverage.xml
 *.cover
 
-# Model Bundles & Large Datasets (keep sample templates only)
+# Model Bundles & Large Datasets
+# Active bundles (<15MB) are tracked directly in Git for self-contained CI, local dev, and Docker builds.
+# Large staging archives (.zip, .tar.gz) and raw data are ignored.
 backend/model_artifacts/*.zip
-backend/model_artifacts/*/*.pkl
-backend/model_artifacts/*/*.joblib
-!backend/model_artifacts/.gitkeep
+backend/model_artifacts/*.tar.gz
+!backend/model_artifacts/**
+backend/model_artifacts/**/*.zip
+backend/model_artifacts/**/*.tar.gz
 database/sample_data/*.raw
 *.tar.gz
 

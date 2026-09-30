@@ -23,7 +23,7 @@ class Base(DeclarativeBase):
 # - prepare_threshold=None: disables psycopg prepared statements
 connect_args = {
     "prepare_threshold": None,
-    "connect_timeout": 2,
+    "connect_timeout": settings.DB_CONNECT_TIMEOUT,
 }
 
 # Add sslmode if not local test DB

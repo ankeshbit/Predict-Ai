@@ -29,3 +29,17 @@ These are dropped deterministically by the feature engineering pipeline based on
 - **Description**: Synthetic tabular dataset with 10,000 rows representing milling machine failures.
 - **Columns**: `UDI`, `Product ID`, `Type`, `Air temperature [K]`, `Process temperature [K]`, `Rotational speed [rpm]`, `Torque [Nm]`, `Tool wear [min]`, `Machine failure`, `TWF`, `HDF`, `PWF`, `OSF`, `RNF`.
 - **Role in Predict-Ai**: Used exclusively as the negative validation benchmark to test the FR-6 Dataset Compatibility Gate. It must fail schema validation and be rejected with an actionable Expected / Found / How-to-Fix report.
+
+---
+
+## 3. Provenance of Repository Sample Data (`database/sample_data/`)
+
+All files stored under `database/sample_data/` are **synthetic test fixtures**, programmatically generated via `scripts/make_sample_csvs.py` to enable deterministic CI and rapid local verification without checking in multi-megabyte raw files:
+
+| File Name | Provenance & Origin | Description & Role in Platform |
+| :--- | :--- | :--- |
+| `compatible_fd001_synthetic_test_fixture.csv` | **Synthetic** (generated via `scripts/make_sample_csvs.py`) | Synthesizes a valid 2-unit, 45-cycle C-MAPSS FD001 engine run with canonical column headers and authentic baseline numerical values. Passes the FR-6 Compatibility Gate. |
+| `perturbed_fd001_synthetic_test_fixture.csv` | **Synthetic** (generated via `scripts/make_sample_csvs.py`) | Synthesizes a 1-unit C-MAPSS run with +25% baseline shift / scaling perturbation. Used to test sensor range checks and statistical drift alerts. |
+| `incompatible_ai4i_synthetic_test_fixture.csv` | **Synthetic** (generated via `scripts/make_sample_csvs.py`) | 5-row fixture mimicking the UCI AI4I milling machine dataset schema. Missing all C-MAPSS sensor channels; used to verify that the FR-6 gate rejects incompatible schemas with `409 Conflict (DATASET_INCOMPATIBLE)`. |
+
+*Note: Real NASA C-MAPSS FD001 dataset files (`train_FD001.txt`, `test_FD001.txt`, `RUL_FD001.txt`) are downloaded directly into Google Colab during Phase 2 training (`01_data_prep_fd001.ipynb`) and are not checked into this git repository.*
