@@ -1,0 +1,36 @@
+feature_config_version: "1.0.0"
+description: "C-MAPSS FD001 causal past-only feature extraction pipeline"
+unit_col: "unit_id"
+cycle_col: "cycle"
+
+# Constant / zero-variance FD001 channels dropped deterministically
+drop_channels:
+  - "sensor_1"
+  - "sensor_5"
+  - "sensor_6"
+  - "sensor_10"
+  - "sensor_16"
+  - "sensor_18"
+  - "sensor_19"
+  - "op_setting_3"
+
+# Raw channels to keep as baseline features (after dropping constant channels)
+include_raw_channels: true
+
+# Rolling statistics over past windows (causal: strictly t - window + 1 to t)
+rolling_windows:
+  - 5
+  - 15
+  - 30
+
+rolling_ops:
+  - "mean"
+  - "std"
+
+# Lag differences: value(t) - value(t - lag)
+lag_steps:
+  - 1
+  - 5
+
+# Difference from rolling mean: value(t) - rolling_mean(t)
+compute_rolling_diff: true
