@@ -12,11 +12,16 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
-from app.core.errors import NotFoundError
-from app.models.entities import Machine, Prediction, SensorReading, User
+from app.core.errors import ConflictError, NotFoundError
+from app.models.entities import Alert, Anomaly, Machine, MaintenanceRecord, Prediction, SensorReading, User
 from app.schemas.machines import (
+    MachineArchiveRequest,
+    MachineCreateRequest,
     MachineListResponse,
     MachineResponse,
+    MachineTimelineItem,
+    MachineTimelineResponse,
+    MachineUpdateRequest,
     SensorCycleReading,
     SensorHistoryResponse,
 )
@@ -63,6 +68,35 @@ def list_machines(
     )
 
 
+@router.post("", response_model=MachineResponse, status_code=201)
+def create_machine(
+    payload: MachineCreateRequest,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Creates a new machine in the fleet (Admin only)."""
+    existing = db.scalar(select(Machine).where(Machine.machine_code == payload.machine_code))
+    if existing:
+        raise ConflictError(message=f"Machine with code {payload.machine_code} already exists")
+
+    machine = Machine(
+        id=uuid.uuid4(),
+        machine_code=payload.machine_code,
+        name=payload.name,
+        machine_type=payload.machine_type or "Turbofan Engine",
+        location=payload.location,
+        notes=payload.notes,
+        install_date=payload.install_date,
+        dataset_id=payload.dataset_id,
+        source_unit_id=payload.source_unit_id,
+        operational_status="active",
+    )
+    db.add(machine)
+    db.commit()
+    db.refresh(machine)
+    return MachineResponse.model_validate(machine)
+
+
 @router.get("/{machine_id}", response_model=MachineResponse)
 def get_machine(
     machine_id: uuid.UUID,
@@ -74,6 +108,159 @@ def get_machine(
     if not machine:
         raise NotFoundError(message=f"Machine with id {machine_id} not found")
     return MachineResponse.model_validate(machine)
+
+
+@router.patch("/{machine_id}", response_model=MachineResponse)
+def update_machine(
+    machine_id: uuid.UUID,
+    payload: MachineUpdateRequest,
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Partially updates machine metadata (name, machine_type, location, notes).
+    Conforms to PRD §14.2 & ADR: operational status can only change via maintenance workflow.
+    """
+    machine = db.get(Machine, machine_id)
+    if not machine:
+        raise NotFoundError(message=f"Machine with id {machine_id} not found")
+
+    if payload.name is not None:
+        machine.name = payload.name
+    if payload.machine_type is not None:
+        machine.machine_type = payload.machine_type
+    if payload.location is not None:
+        machine.location = payload.location
+    if payload.notes is not None:
+        machine.notes = payload.notes
+
+    db.commit()
+    db.refresh(machine)
+    return MachineResponse.model_validate(machine)
+
+
+@router.post("/{machine_id}/archive", response_model=MachineResponse)
+def archive_machine(
+    machine_id: uuid.UUID,
+    payload: MachineArchiveRequest = MachineArchiveRequest(),
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Archives a machine (Admin only).
+    Blocks if machine has open alerts unless force=True (PRD §14.2).
+    """
+    machine = db.get(Machine, machine_id)
+    if not machine:
+        raise NotFoundError(message=f"Machine with id {machine_id} not found")
+
+    open_alerts_count = db.scalar(
+        select(func.count()).select_from(
+            select(Alert).where(
+                Alert.machine_id == machine_id,
+                Alert.status.in_(["open", "acknowledged"]),
+            ).subquery()
+        )
+    ) or 0
+
+    if open_alerts_count > 0 and not payload.force:
+        raise ConflictError(
+            code="OPEN_ALERTS_EXIST",
+            message=f"Machine has {open_alerts_count} open alerts. Provide force=true to archive.",
+        )
+
+    machine.operational_status = "archived"
+    db.commit()
+    db.refresh(machine)
+    return MachineResponse.model_validate(machine)
+
+
+@router.get("/{machine_id}/timeline", response_model=MachineTimelineResponse)
+def get_machine_timeline(
+    machine_id: uuid.UUID,
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns a unified timeline of anomalies, alerts, and maintenance events for a machine (PRD §14.2).
+    """
+    machine = db.get(Machine, machine_id)
+    if not machine:
+        raise NotFoundError(message=f"Machine with id {machine_id} not found")
+
+    timeline_items: List[MachineTimelineItem] = []
+
+    # 1. Anomalies
+    anomalies = db.scalars(
+        select(Anomaly).where(Anomaly.machine_id == machine_id).order_by(Anomaly.cycle.desc())
+    ).all()
+    for a in anomalies:
+        timeline_items.append(
+            MachineTimelineItem(
+                id=a.id,
+                event_type="anomaly",
+                cycle=a.cycle,
+                timestamp=a.detected_at,
+                title=f"Anomaly detected at cycle {a.cycle} (score {a.anomaly_score:.2f})",
+                severity=a.severity,
+                status="flagged" if a.is_anomaly else "nominal",
+                details={"score": a.anomaly_score, "is_anomaly": a.is_anomaly},
+            )
+        )
+
+    # 2. Alerts
+    alerts = db.scalars(
+        select(Alert).where(Alert.machine_id == machine_id).order_by(Alert.trigger_cycle.desc())
+    ).all()
+    for al in alerts:
+        timeline_items.append(
+            MachineTimelineItem(
+                id=al.id,
+                event_type="alert",
+                cycle=al.trigger_cycle,
+                timestamp=al.created_at,
+                title=f"Alert: {al.alert_type.replace('_', ' ').title()}",
+                severity=al.severity,
+                status=al.status,
+                details={
+                    "alert_type": al.alert_type,
+                    "trigger_score": al.trigger_score,
+                    "recommendation": al.recommendation_text,
+                },
+            )
+        )
+
+    # 3. Maintenance records
+    m_records = db.scalars(
+        select(MaintenanceRecord).where(MaintenanceRecord.machine_id == machine_id).order_by(MaintenanceRecord.started_at.desc())
+    ).all()
+    for m in m_records:
+        timeline_items.append(
+            MachineTimelineItem(
+                id=m.id,
+                event_type="maintenance",
+                cycle=None,
+                timestamp=m.started_at,
+                title=f"Maintenance: {m.issue or m.action_type}",
+                severity=None,
+                status=m.status,
+                details={
+                    "decision": m.decision,
+                    "action_taken": m.action_taken,
+                    "outcome": m.outcome,
+                },
+            )
+        )
+
+    # Sort descending by timestamp
+    timeline_items.sort(key=lambda item: item.timestamp, reverse=True)
+
+    return MachineTimelineResponse(
+        machine_id=machine.id,
+        machine_code=machine.machine_code,
+        total_events=len(timeline_items),
+        events=timeline_items,
+    )
 
 
 

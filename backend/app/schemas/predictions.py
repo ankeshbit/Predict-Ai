@@ -71,6 +71,10 @@ class FeatureContribution(BaseModel):
 
 
 class ExplanationResponse(BaseModel):
+    headline: str
+    contributions: List[FeatureContribution]
+    trend_facts: List[Dict[str, Any]]
+    text: str
     method: str
     space: str
-    top_features: List[FeatureContribution]
+    computed_at: datetime

@@ -123,20 +123,39 @@ export function useMachine(id?: string) {
   });
 }
 
+export function useSensorHistory(
+  id?: string,
+  params?: { from_cycle?: number; to_cycle?: number; downsample_to?: number; channels?: string }
+) {
+  const queryParams = new URLSearchParams();
+  if (params?.from_cycle) queryParams.set('from_cycle', String(params.from_cycle));
+  if (params?.to_cycle) queryParams.set('to_cycle', String(params.to_cycle));
+  if (params?.downsample_to) queryParams.set('downsample_to', String(params.downsample_to));
+  if (params?.channels) queryParams.set('channels', params.channels);
+
+  const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+  return useQuery({
+    queryKey: ['sensorHistory', id, params],
+    queryFn: () => apiFetch<any>(`/machines/${id}/sensors${queryStr}`),
+    enabled: !!id,
+  });
+}
+
 export function useMachineTelemetry(
   id?: string,
   params?: { start_cycle?: number; end_cycle?: number; downsample_limit?: number }
 ) {
   const queryParams = new URLSearchParams();
-  if (params?.start_cycle) queryParams.set('start_cycle', String(params.start_cycle));
-  if (params?.end_cycle) queryParams.set('end_cycle', String(params.end_cycle));
-  if (params?.downsample_limit) queryParams.set('downsample_limit', String(params.downsample_limit));
+  if (params?.start_cycle) queryParams.set('from_cycle', String(params.start_cycle));
+  if (params?.end_cycle) queryParams.set('to_cycle', String(params.end_cycle));
+  if (params?.downsample_limit) queryParams.set('downsample_to', String(params.downsample_limit));
 
   const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
   return useQuery({
     queryKey: ['machineTelemetry', id, params],
-    queryFn: () => apiFetch<SensorHistoryResponse>(`/machines/${id}/telemetry${queryStr}`),
+    queryFn: () => apiFetch<any>(`/machines/${id}/sensors${queryStr}`),
     enabled: !!id,
   });
 }

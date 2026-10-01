@@ -60,6 +60,49 @@ def get_model(
     return ModelVersionResponse.model_validate(model)
 
 
+@router.get("/{model_id}/card")
+def get_model_card(
+    model_id: uuid.UUID,
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Retrieves the complete model card for a registered model bundle (PRD §14.5)."""
+    import json
+    from pathlib import Path
+
+    model = db.get(ModelVersion, model_id)
+    if not model:
+        raise NotFoundError(message=f"Model version {model_id} not found")
+
+    artifact_dir = Path(model.artifact_path)
+    card_path = artifact_dir / "metadata" / "model_card.json"
+    if card_path.is_file():
+        try:
+            return json.loads(card_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    evaluation = db.scalar(
+        select(ModelEvaluation).where(ModelEvaluation.model_version_id == model_id)
+    )
+    return {
+        "model_version": model.bundle_version,
+        "task": model.task,
+        "model_type": model.model_type,
+        "adapter_key": model.adapter_key,
+        "feature_config_version": model.feature_config_version,
+        "preprocessing_version": model.preprocessing_version,
+        "input_features": model.input_features,
+        "failure_horizon": {"value": model.horizon, "unit": model.horizon_unit},
+        "decision_threshold": model.decision_threshold,
+        "is_active": model.is_active,
+        "model_card_complete": model.model_card_complete,
+        "metrics": evaluation.metrics if evaluation else {},
+        "limitations": evaluation.limitations if evaluation else [],
+        "methodology": evaluation.methodology if evaluation else "",
+    }
+
+
 @router.get("/{model_id}/evaluation", response_model=ModelEvaluationResponse)
 def get_model_evaluation(
     model_id: uuid.UUID,

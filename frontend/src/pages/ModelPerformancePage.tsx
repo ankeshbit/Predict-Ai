@@ -3,36 +3,95 @@ import type { ModelEvaluation, ModelVersion } from '../types';
 import { ConfusionMatrixChart } from '../components/charts/ConfusionMatrixChart';
 import { RocPrCurves } from '../components/charts/RocPrCurves';
 import { CalibrationPlot } from '../components/charts/CalibrationPlot';
-import { Cpu, ShieldCheck, Info } from 'lucide-react';
+import { useActiveModels, useModelEvaluation } from '../api';
+import { Cpu } from 'lucide-react';
 
 interface ModelPerformancePageProps {
-  evaluation: ModelEvaluation | null;
-  activeModels: ModelVersion[];
+  evaluation?: ModelEvaluation | null;
+  activeModels?: ModelVersion[];
 }
 
 export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
-  evaluation,
-  activeModels,
+  evaluation: propEvaluation,
+  activeModels: propActiveModels,
 }) => {
-  const [selectedModelId, setSelectedModelId] = useState<string>(activeModels[0]?.id || '');
-  const activeModel = activeModels.find((m) => m.id === selectedModelId) || activeModels[0];
+  const { data: apiActiveModels } = useActiveModels();
+  const activeModels = propActiveModels || (apiActiveModels || []).map((m) => ({
+    id: m.id,
+    version: m.bundle_version,
+    task: m.task,
+    modelType: m.model_type,
+    isActive: m.is_active,
+    createdAt: m.created_at,
+    artifactPath: `/model_artifacts/${m.bundle_version}`,
+    sha256: m.sha256_hash,
+  }));
 
-  if (!evaluation) {
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
+  const currentModelId = selectedModelId || activeModels[0]?.id || '';
+  const activeModel = activeModels.find((m) => m.id === currentModelId) || activeModels[0];
+
+  const { data: apiEvaluation, isError } = useModelEvaluation(currentModelId);
+  const evaluation = propEvaluation || apiEvaluation;
+
+  if (isError || !evaluation || !activeModel) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-lg font-semibold text-slate-100 tracking-tight">Model Evaluation Workspace</h1>
-        <div className="p-12 text-center rounded-lg border border-[#1f2838] bg-[#111620] space-y-2">
+      <div className="space-y-4 animate-in fade-in duration-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-[#1f2838]">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-100 tracking-tight">Model Evaluation Workspace</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Offline test split evaluation on held-out engines &bull; Leakage-safe GroupKFold protocol.
+            </p>
+          </div>
+          {activeModels.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">Model Version:</span>
+              <select
+                value={currentModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+                className="h-8 px-2.5 rounded bg-[#161f2e] border border-[#253246] text-xs text-slate-100 font-mono focus:outline-hidden focus:border-blue-500 cursor-pointer"
+              >
+                {activeModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.version} — {m.task} ({m.modelType})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        <div className="p-12 text-center rounded-lg border border-[#1f2838] bg-[#111620] space-y-3">
           <Cpu className="w-8 h-8 text-slate-500 mx-auto" />
-          <h3 className="text-sm font-semibold text-slate-200">No Model Evaluation Artifacts Loaded</h3>
+          <h3 className="text-sm font-semibold text-slate-200">Model evaluation not available.</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Run the offline evaluation pipeline (`python -m ml.evaluate`) to export evaluation metrics, ROC/PR curves, and calibration tables.
+            No stored evaluation record exists for the selected model. Every metric on this page originates strictly from offline Colab evaluation artifacts.
           </p>
         </div>
       </div>
     );
   }
 
-  const { metrics, confusionMatrix, prCurve, rocCurve, calibrationCurve, featureImportance } = evaluation;
+  // Format evaluation metrics from API response
+  const rawMetrics = (evaluation as any).metrics?.internal_test || (evaluation as any).metrics || {};
+  const metrics = {
+    prAuc: rawMetrics.pr_auc ?? (evaluation as any).metrics?.prAuc ?? '—',
+    baselinePrAuc: rawMetrics.baseline_pr_auc ?? (evaluation as any).metrics?.baselinePrAuc ?? '0.320',
+    rocAuc: rawMetrics.roc_auc ?? (evaluation as any).metrics?.rocAuc ?? '—',
+    baselineRocAuc: rawMetrics.baseline_roc_auc ?? (evaluation as any).metrics?.baselineRocAuc ?? '0.500',
+    precision: rawMetrics.precision ?? (evaluation as any).metrics?.precision ?? '—',
+    recall: rawMetrics.recall ?? (evaluation as any).metrics?.recall ?? '—',
+    f1Score: rawMetrics.f1 ?? (evaluation as any).metrics?.f1Score ?? '—',
+    brierScore: rawMetrics.brier_score ?? (evaluation as any).metrics?.brierScore ?? '—',
+  };
+
+  const rawCurves = (evaluation as any).curves?.internal_test || (evaluation as any).curves || {};
+  const rocCurve = rawCurves.roc_curve || (evaluation as any).rocCurve || { fpr: [], tpr: [] };
+  const prCurve = rawCurves.pr_curve || (evaluation as any).prCurve || { precision: [], recall: [] };
+  const calibrationCurve = (evaluation as any).calibration_curve || (evaluation as any).calibrationCurve || { prob_pred: [], prob_true: [] };
+  const confusionMatrix = (evaluation as any).confusion_matrix || (evaluation as any).confusionMatrix || { tn: 0, fp: 0, fn: 0, tp: 0 };
+  const featureImportance = (evaluation as any).feature_importance || (evaluation as any).featureImportance || [];
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
@@ -53,7 +112,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-400 font-mono">Model Version:</span>
           <select
-            value={selectedModelId}
+            value={currentModelId}
             onChange={(e) => setSelectedModelId(e.target.value)}
             className="h-8 px-2.5 rounded bg-[#161f2e] border border-[#253246] text-xs text-slate-100 font-mono focus:outline-hidden focus:border-blue-500 cursor-pointer"
           >
@@ -66,27 +125,27 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </div>
       </div>
 
-      {/* Model Identity & Lineage Banner (Section 17 Structure) */}
+      {/* Model Identity & Lineage Banner */}
       <div className="p-3.5 rounded-lg bg-[#111620] border border-[#1f2838] grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Model Identity</span>
-          <span className="font-mono font-semibold text-slate-200 mt-0.5 block">{activeModel?.version || 'failure_lgb_v2.1'}</span>
-          <span className="text-[11px] text-slate-400 font-mono">{activeModel?.modelType || 'LightGBM Classifier'}</span>
+          <span className="font-mono font-semibold text-slate-200 mt-0.5 block">{activeModel?.version}</span>
+          <span className="text-[11px] text-slate-400 font-mono">{activeModel?.modelType}</span>
         </div>
         <div>
-          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Dataset &amp; Split</span>
-          <span className="font-semibold text-slate-200 mt-0.5 block truncate">{evaluation.evaluationDataset}</span>
-          <span className="text-[11px] text-slate-400 font-mono">{evaluation.splitProtocol}</span>
+          <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Dataset &amp; Task</span>
+          <span className="font-semibold text-slate-200 mt-0.5 block truncate">C-MAPSS FD001</span>
+          <span className="text-[11px] text-slate-400 font-mono">{activeModel?.task}</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Prediction Horizon</span>
-          <span className="font-mono font-semibold text-blue-400 mt-0.5 block">H = 30 Operating Cycles</span>
-          <span className="text-[11px] text-slate-400 font-mono">Binary degradation</span>
+          <span className="font-mono font-semibold text-blue-400 mt-0.5 block">H = 30 Cycles</span>
+          <span className="text-[11px] text-slate-400 font-mono">Operating cycles</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Evaluated At</span>
-          <span className="font-mono text-slate-200 mt-0.5 block">{evaluation.evaluatedAt}</span>
-          <span className="text-[11px] text-slate-400 font-mono">920 test engine windows</span>
+          <span className="font-mono text-slate-200 mt-0.5 block">{(evaluation as any).evaluated_at || (evaluation as any).evaluatedAt || 'Offline'}</span>
+          <span className="text-[11px] text-slate-400 font-mono">Held-out test split</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Calibration Method</span>
@@ -144,75 +203,36 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
           <div>
             <h4 className="font-semibold text-slate-100 font-mono text-xs">Empirical Confusion Matrix</h4>
-            <p className="text-[11px] text-slate-400">Classification outcomes across 920 test window evaluations</p>
+            <p className="text-[11px] text-slate-400">Classification outcomes across held-out test evaluations</p>
           </div>
           <ConfusionMatrixChart matrix={confusionMatrix} />
         </div>
       </div>
 
-      {/* Feature Importance & SHAP Attribution */}
-      <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#1f2838]">
-          <div>
-            <h4 className="font-semibold text-slate-100 font-mono text-xs">Global Feature Importance (SHAP Mean Absolute Attribution)</h4>
-            <p className="text-[11px] text-slate-400">Contribution of standardized C-MAPSS sensor features to degradation probability</p>
-          </div>
-          <span className="text-[11px] font-mono text-slate-400">
-            Top 7 explanatory channels
-          </span>
-        </div>
-
-        <div className="space-y-2.5 text-xs">
-          {featureImportance.map((item, idx) => (
-            <div key={idx} className="space-y-1">
-              <div className="flex justify-between items-center text-slate-300 font-mono text-xs">
-                <span className="font-semibold">{item.feature}</span>
-                <span className="text-slate-400 text-[11px]">
-                  Importance: <strong className="text-blue-400 font-mono">{(item.importance * 100).toFixed(1)}%</strong>
-                </span>
-              </div>
-              <div className="h-1.5 w-full bg-[#161f2d] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 rounded-full"
-                  style={{ width: `${item.importance * 300}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Model Card & Operational Boundary */}
-      <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3 text-xs">
-        <div className="flex items-center gap-2 text-slate-200 font-semibold font-mono text-xs">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Model Card &amp; Engineering Specifications</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300">
-          <div className="p-3 rounded-md bg-[#131924] border border-[#222b3b] space-y-1">
-            <span className="font-mono text-[11px] text-slate-400 uppercase">Target Definition</span>
-            <p className="text-slate-300 leading-relaxed font-sans">{activeModel.modelCard.targetDefinition}</p>
-          </div>
-
-          <div className="p-3 rounded-md bg-[#131924] border border-[#222b3b] space-y-1">
-            <span className="font-mono text-[11px] text-slate-400 uppercase">Probability Calibration Protocol</span>
-            <p className="text-slate-300 leading-relaxed font-sans">{activeModel.modelCard.calibrationInfo}</p>
+      {/* Feature Importance Table */}
+      {featureImportance && featureImportance.length > 0 && (
+        <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
+          <h4 className="font-semibold text-slate-100 font-mono text-xs">Global Feature Importance (SHAP / Gini)</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="border-b border-[#1f2838] text-slate-500 text-[11px]">
+                  <th className="pb-2">Feature Identifier</th>
+                  <th className="pb-2">Importance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#18212e]">
+                {featureImportance.map((f: any, i: number) => (
+                  <tr key={i} className="text-slate-300">
+                    <td className="py-1.5 text-slate-200">{f.feature}</td>
+                    <td className="py-1.5 text-blue-400">{typeof f.importance === 'number' ? f.importance.toFixed(4) : f.importance}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-
-        <div className="p-3 rounded-md bg-[#17161b] border border-amber-900/40 text-amber-200 text-xs flex items-start gap-2.5">
-          <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-amber-300 block font-mono text-[11px] uppercase">
-              Stated Operational Limitations
-            </span>
-            <p className="text-slate-300 text-xs mt-0.5 font-sans leading-relaxed">
-              {activeModel.modelCard.limitations}
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import type { NavPage } from './Sidebar';
 import { TopNavbar } from './TopNavbar';
-import type { User, Role } from '../../types';
+import type { User } from '../../types';
 import { AboutResponsibleUseModal } from '../modals/AboutResponsibleUseModal';
 
 interface AppLayoutProps {
   currentPage: NavPage;
   onNavigate: (page: NavPage) => void;
   currentUser: User;
-  onSwitchRole: (role: Role) => void;
   openAlertCount: number;
   onResetDemo: () => void;
   onLogout: () => void;
@@ -20,7 +19,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   currentPage,
   onNavigate,
   currentUser,
-  onSwitchRole,
   openAlertCount,
   onResetDemo,
   onLogout,
@@ -55,7 +53,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <TopNavbar
           currentPageTitle={pageTitles[currentPage] || 'Dashboard'}
           currentUser={currentUser}
-          onSwitchRole={onSwitchRole}
           openAlertCount={openAlertCount}
           onOpenAlerts={() => onNavigate('alerts')}
           onResetDemo={onResetDemo}

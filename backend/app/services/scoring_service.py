@@ -21,6 +21,7 @@ import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db import SessionLocal
 from app.core.errors import ConflictError, NotFoundError
 from app.ml.pdm_health import health_breakdown
 from app.ml.pdm_inference import ModelBundle, score_trajectory
@@ -28,7 +29,9 @@ from app.ml.pdm_recommendation import recommend_maintenance
 from app.models.entities import (
     Alert,
     Anomaly,
+    Dataset,
     HealthIndicatorConfig,
+    Job,
     Machine,
     ModelVersion,
     Prediction,
@@ -58,6 +61,24 @@ def score_machine_trajectory(
     )
     if not active_model:
         raise ConflictError(message="No active failure risk model is registered. Cannot score telemetry.")
+
+    active_anomaly_model = db.scalar(
+        select(ModelVersion).where(
+            ModelVersion.adapter_key == "cmapss_fd001",
+            ModelVersion.task == "anomaly",
+            ModelVersion.is_active.is_(True),
+        )
+    )
+    anomaly_model_version_id = active_anomaly_model.id if active_anomaly_model else None
+
+    # Fetch dataset lineage
+    dataset_version = "cmapss-fd001"
+    schema_mapping_hash = "fd001-canonical-sha256"
+    if machine.dataset_id:
+        dataset = db.get(Dataset, machine.dataset_id)
+        if dataset:
+            dataset_version = dataset.version or dataset_version
+            schema_mapping_hash = dataset.schema_mapping_hash or schema_mapping_hash
 
     # 2. Load model bundle
     artifact_path = Path(bundle_path or active_model.artifact_path)
@@ -140,12 +161,12 @@ def score_machine_trajectory(
             machine_id=machine_id,
             cycle=cycle_val,
             as_of_index=cycle_val,
-            dataset_version="cmapss-fd001",
-            schema_mapping_hash="fd001-canonical-sha256",
+            dataset_version=dataset_version,
+            schema_mapping_hash=schema_mapping_hash,
             feature_config_version=active_model.feature_config_version,
             preprocessing_version=active_model.preprocessing_version,
             failure_model_version_id=active_model.id,
-            anomaly_model_version_id=None,
+            anomaly_model_version_id=anomaly_model_version_id,
             health_config_id=health_cfg.id if health_cfg else uuid.uuid4(),
             horizon=active_model.horizon or 30,
             horizon_unit=active_model.horizon_unit or "cycles",
@@ -264,3 +285,82 @@ def score_machine_trajectory(
         "failure_probability": latest_fail,
         "recommendation": rec,
     }
+
+
+def run_scoring_job(
+    job_id: uuid.UUID,
+    dataset_id: uuid.UUID,
+    machine_ids: Optional[List[uuid.UUID]] = None,
+    bundle_path: Optional[str | Path] = None,
+    _db: Optional[Session] = None,
+):
+    """
+    Background worker task for scoring run (PRD FR-7).
+    Executes in a background thread/task using its own isolated database session,
+    OR uses the provided _db session (for synchronous test execution).
+    """
+    own_session = _db is None
+    db: Session = _db if _db is not None else SessionLocal()
+    job = None
+    try:
+        job = db.get(Job, job_id)
+        dataset = db.get(Dataset, dataset_id)
+        if not job or not dataset:
+            logger.error(f"Scoring job {job_id} or dataset {dataset_id} not found.")
+            return
+
+        job.status = "running"
+        job.started_at = datetime.now(timezone.utc)
+        job.progress_pct = 5.0
+        db.commit()
+
+        # Fetch machines associated with this dataset
+        stmt = select(Machine).where(Machine.dataset_id == dataset_id)
+        if machine_ids:
+            stmt = stmt.where(Machine.id.in_(machine_ids))
+
+        machines = db.scalars(stmt).all()
+        total_machines = len(machines)
+
+        if total_machines == 0:
+            job.status = "completed"
+            job.progress_pct = 100.0
+            job.completed_at = datetime.now(timezone.utc)
+            job.result = {"scored_machines": 0, "message": "No machines found to score"}
+            db.commit()
+            return
+
+        scored_count = 0
+        for i, machine in enumerate(machines):
+            try:
+                score_machine_trajectory(machine.id, db, bundle_path=bundle_path)
+                scored_count += 1
+            except Exception as e:
+                logger.warning(f"Error scoring machine {machine.id}: {e}")
+
+            progress = 5.0 + 90.0 * (i + 1) / total_machines
+            job.progress_pct = round(progress, 1)
+            db.commit()
+
+        job.status = "completed"
+        job.progress_pct = 100.0
+        job.completed_at = datetime.now(timezone.utc)
+        job.result = {
+            "dataset_id": str(dataset_id),
+            "total_machines": total_machines,
+            "scored_machines": scored_count,
+            "status": "completed",
+        }
+        db.commit()
+    except Exception as e:
+        logger.exception(f"Scoring job {job_id} failed: {e}")
+        if job:
+            db.rollback()
+            job.status = "failed"
+            job.error_message = str(e)
+            job.completed_at = datetime.now(timezone.utc)
+            db.commit()
+    finally:
+        if own_session:
+            db.close()
+

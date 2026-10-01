@@ -28,21 +28,9 @@ FORBIDDEN_SENSOR_PATTERNS = [
     r'\bmotor\b',
 ]
 
-# Explicit allowlist of existing frontend prototype / mockData occurrences.
-# MUST be removed in Phase 6 when mockData is deleted and real API endpoints are wired.
-ALLOWLIST_PHASE_6_TODO = {
-    "frontend/src/mockData/demoData.ts": [
-        # TODO(Phase 6): Remove mockData/demoData.ts and all synthetic mock descriptors
-        "mild thermal cycle accumulation",
-        "Rapid sensor_11 thermal rise",
-        "high-pressure turbine seal",
-        "pressure sensor lead",
-    ],
-    "frontend/src/pages/DatasetSchemaMappingPage.tsx": [
-        # TODO(Phase 6): Replace hardcoded sample dataset mapping rows with dynamic API response
-        "P30 (Total Pressure)",
-        "vibration_probe_3",
-    ],
+# Phase 6 complete: mockData deleted and invented sensor labels removed.
+# Retain only explicit legitimate negation disclaimers (PRD §6):
+LEGITIMATE_DISCLAIMER_ALLOWLIST = {
     "frontend/src/components/modals/AboutResponsibleUseModal.tsx": [
         # PRD §6 Disclaimer: Legitimate negation of physical domains
         "not motor, pump, or compressor telemetry",
@@ -52,8 +40,8 @@ ALLOWLIST_PHASE_6_TODO = {
 
 def is_allowed(rel_path: str, line_content: str) -> bool:
     normalized_path = rel_path.replace("\\", "/")
-    if normalized_path in ALLOWLIST_PHASE_6_TODO:
-        allowed_snippets = ALLOWLIST_PHASE_6_TODO[normalized_path]
+    if normalized_path in LEGITIMATE_DISCLAIMER_ALLOWLIST:
+        allowed_snippets = LEGITIMATE_DISCLAIMER_ALLOWLIST[normalized_path]
         for snippet in allowed_snippets:
             if snippet.lower() in line_content.lower():
                 return True
@@ -96,7 +84,7 @@ def check_physical_sensor_semantics():
             print(f"    {v}")
         return False
 
-    print("[+] PASSED: Physical sensor semantics check passed (allowed legacy prototype items tracked under Phase 6 removal TODOs).")
+    print("[+] PASSED: Physical sensor semantics check passed (zero forbidden physical sensor semantics; mockData eliminated).")
     return True
 
 

@@ -47,8 +47,8 @@ export const DatasetSchemaMappingPage: React.FC<DatasetSchemaMappingProps> = ({
           check: 'Feature Schema Alignment',
           status: 'error',
           expected: '24 features matching model input_features (sensor_1..21)',
-          found: '6 tabular features (Air temp, Process temp, Speed, Torque, Wear)',
-          howToFix: 'Map headers to canonical sensor_1..21 or register an AI4I adapter model.',
+          found: 'Incompatible tabular format with unrecognized column headers',
+          howToFix: 'Map headers to canonical sensor_1..21 or register a valid adapter.',
         },
         {
           check: 'Adapter Specification',
@@ -96,11 +96,11 @@ export const DatasetSchemaMappingPage: React.FC<DatasetSchemaMappingProps> = ({
     { datasetCol: 'time_in_cycles', canonical: 'cycle', type: 'integer (sequence)', status: 'Mapped' },
     { datasetCol: 'setting_1', canonical: 'op_setting_1', type: 'float', status: 'Mapped' },
     { datasetCol: 'setting_2', canonical: 'op_setting_2', type: 'float', status: 'Mapped' },
-    { datasetCol: 'T24 (Total Temp)', canonical: 'sensor_2', type: 'float', status: 'Mapped' },
-    { datasetCol: 'T30 (HPC Outlet Temp)', canonical: 'sensor_11', type: 'float', status: 'Mapped' },
-    { datasetCol: 'P30 (Total Pressure)', canonical: 'sensor_4', type: 'float', status: 'Mapped' },
-    { datasetCol: 'Nc (Core Speed)', canonical: 'sensor_9', type: 'float', status: 'Mapped' },
-    { datasetCol: 'vibration_probe_3', canonical: '—', type: 'unrecognized', status: 'Optional' },
+    { datasetCol: 'raw_col_2', canonical: 'sensor_2', type: 'float', status: 'Mapped' },
+    { datasetCol: 'raw_col_11', canonical: 'sensor_11', type: 'float', status: 'Mapped' },
+    { datasetCol: 'raw_col_4', canonical: 'sensor_4', type: 'float', status: 'Mapped' },
+    { datasetCol: 'raw_col_9', canonical: 'sensor_9', type: 'float', status: 'Mapped' },
+    { datasetCol: 'extra_col_aux', canonical: '—', type: 'unrecognized', status: 'Optional' },
   ];
 
   return (

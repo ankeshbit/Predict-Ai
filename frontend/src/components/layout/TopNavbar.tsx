@@ -1,12 +1,11 @@
 import React from 'react';
-import type { User, Role } from '../../types';
+import type { User } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Bell, RotateCcw, HelpCircle, LogOut } from 'lucide-react';
 
 interface TopNavbarProps {
   currentPageTitle: string;
   currentUser: User;
-  onSwitchRole: (role: Role) => void;
   openAlertCount: number;
   onOpenAlerts: () => void;
   onResetDemo: () => void;
@@ -17,7 +16,6 @@ interface TopNavbarProps {
 export const TopNavbar: React.FC<TopNavbarProps> = ({
   currentPageTitle,
   currentUser,
-  onSwitchRole,
   openAlertCount,
   onOpenAlerts,
   onResetDemo,
@@ -43,30 +41,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         </Badge>
       </div>
 
-      {/* Right controls: Role switcher, reset demo, notifications, profile */}
+      {/* Right controls: Role indicator, reset demo, notifications, profile */}
       <div className="flex items-center gap-2.5">
-        {/* Compact Role Toggle */}
-        <div className="flex items-center bg-[#0c1018] border border-[#20293a] rounded p-0.5 text-[11px] font-mono">
-          <button
-            onClick={() => onSwitchRole('engineer')}
-            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-              currentUser.role === 'engineer'
-                ? 'bg-[#1e2738] text-slate-100 font-semibold shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            ENG
-          </button>
-          <button
-            onClick={() => onSwitchRole('admin')}
-            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-              currentUser.role === 'admin'
-                ? 'bg-blue-600 text-white font-semibold shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            ADM
-          </button>
+        {/* Role Indicator (Static RBAC badge, no role switcher) */}
+        <div className="flex items-center px-2 py-0.5 rounded bg-[#0c1018] border border-[#20293a] text-[11px] font-mono">
+          <span className="text-slate-500 mr-1.5 text-[10px]">ROLE:</span>
+          <span className={`font-semibold ${currentUser.role === 'admin' ? 'text-blue-400' : 'text-slate-200'}`}>
+            {currentUser.role.toUpperCase()}
+          </span>
         </div>
 
         {/* Reset Demo State (Admin only) */}

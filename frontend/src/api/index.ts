@@ -5,4 +5,6 @@ export * from './alerts';
 export * from './maintenance';
 export * from './models';
 export * from './datasets';
+export * from './dashboard';
+export * from './settings';
 export * from './demo';

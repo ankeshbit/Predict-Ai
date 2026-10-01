@@ -1,15 +1,5 @@
 import { useState } from 'react';
-import type { User, Role, Machine, Alert, MaintenanceRecord } from './types';
-import {
-  INITIAL_MACHINES,
-  INITIAL_ALERTS,
-  INITIAL_MAINTENANCE_RECORDS,
-  INITIAL_DATASETS,
-  INITIAL_MODELS,
-  INITIAL_EVALUATION,
-  generateSensorHistory,
-} from './mockData/demoData';
-
+import type { Machine, Alert, MaintenanceRecord, Dataset, ModelVersion } from './types';
 import { AppLayout } from './components/layout/AppLayout';
 import type { NavPage } from './components/layout/Sidebar';
 import { LoginPage } from './pages/LoginPage';
@@ -26,176 +16,287 @@ import { ModelPerformancePage } from './pages/ModelPerformancePage';
 import { ModelRegistryPage } from './pages/ModelRegistryPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-import { useResetDemo } from './api';
+import {
+  setAuthToken,
+  useAcknowledgeAlert,
+  useAlerts,
+  useCurrentUser,
+  useDatasets,
+  useMachines,
+  useMaintenanceRecords,
+  useModels,
+  useResetDemo,
+  useResolveAlert,
+  useCreateMaintenance,
+  useSensorHistory,
+} from './api';
+import { Loader2 } from 'lucide-react';
+
+function mapBackendMachineToMachine(bm: any): Machine {
+  return {
+    id: bm.id,
+    machineCode: bm.machine_code,
+    name: bm.name || bm.machine_code,
+    machineType: bm.machine_type || 'Turbofan Engine',
+    location: bm.location || 'Test Facility 1',
+    installDate: bm.install_date || bm.created_at,
+    operationalStatus: bm.operational_status || 'active',
+    healthIndicator: bm.health_indicator ?? 100,
+    healthBand: bm.health_band || 'Healthy',
+    healthComponents: {
+      failureRiskPenalty: 0,
+      anomalyPenalty: 0,
+      trendPenalty: 0,
+      otherPenalty: 0,
+    },
+    failureProbability: 0.0,
+    predictionHorizon: 30,
+    riskLevel: 'Low',
+    currentCycle: 1,
+    anomalySeverity: 0.0,
+    anomalyScore: 0.0,
+    anomalyStatus: 'normal',
+    reliabilityStatus: 'ok',
+    datasetBadge: 'NASA C-MAPSS FD001 (Simulated)',
+    lastUpdated: bm.updated_at,
+    explanation: {
+      headline: `Unit ${bm.machine_code} status`,
+      topContributingFeatures: [],
+      trendFacts: [],
+      summaryText: 'Scored telemetry available in predictive inference engine.',
+    },
+    recommendation: {
+      ruleId: 'RULE_NOMINAL',
+      text: 'Standard operational schedule.',
+      priority: 'low',
+      rationale: 'Telemetry within nominal threshold.',
+    },
+    lineage: {
+      machineCode: bm.machine_code,
+      datasetName: 'NASA C-MAPSS FD001',
+      datasetVersion: 'v1.0',
+      schemaMappingHash: 'cmapss-fd001-canonical-sha256',
+      featureConfigVersion: 'v1.0',
+      preprocessingVersion: 'v1.0',
+      failureModelVersion: 'fd001-failure-v1',
+      anomalyModelVersion: 'fd001-anomaly-v1',
+      predictionHorizon: 30,
+      predictionHorizonUnit: 'operating cycles',
+      asOfCycle: 1,
+      predictedAt: bm.updated_at,
+      inputWindowLength: 30,
+    },
+  };
+}
+
+function mapBackendAlertToAlert(ba: any, machineCode = 'FD001-Unit'): Alert {
+  return {
+    id: ba.id,
+    machineId: ba.machine_id,
+    machineCode,
+    machineName: machineCode,
+    type: ba.alert_type as any,
+    severity: ba.severity as any,
+    status: ba.status as any,
+    asOfCycle: ba.trigger_cycle || 1,
+    triggeredAt: ba.created_at,
+    message: `Operational alert: ${String(ba.alert_type || '').replace(/_/g, ' ')}`,
+    reliabilityStatus: 'ok',
+    recommendationText: ba.recommendation_text || 'Perform standard engine inspection.',
+    recommendationRuleId: ba.recommendation_rule_id || 'RULE_DEFAULT',
+    acknowledgedAt: ba.acknowledged_at,
+    acknowledgedBy: ba.acknowledged_by_user_id,
+    resolvedAt: ba.resolved_at,
+    resolvedBy: ba.resolved_by_user_id,
+  };
+}
+
+function mapBackendMaintenanceToRecord(bm: any, machineCode = 'FD001-Unit'): MaintenanceRecord {
+  return {
+    id: bm.id,
+    machineId: bm.machine_id,
+    machineCode,
+    alertId: bm.alert_id,
+    issue: bm.issue || bm.action_type || 'Inspection',
+    recommendedAction: bm.recommended_action || 'Inspect engine sensors',
+    decision: bm.decision || 'followed_recommendation',
+    decisionRationale: bm.decision_rationale || '',
+    actionTaken: bm.action_taken || '',
+    performedAt: bm.started_at,
+    performedBy: bm.performed_by_user_id,
+    status: bm.status || 'in_progress',
+    outcome: bm.outcome,
+    notes: bm.engineer_notes || '',
+  };
+}
 
 export function App() {
+  const { data: currentUser, isLoading: isAuthLoading, refetch: refetchUser } = useCurrentUser();
   const resetDemoMutation = useResetDemo();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
-  const [currentUser, setCurrentUser] = useState<User>({
-    id: 'usr-eng-01',
-    email: 'engineer@demo.internal',
-    fullName: 'Alex Vance (Engineer)',
-    role: 'engineer',
-  });
+  const acknowledgeAlertMutation = useAcknowledgeAlert();
+  const resolveAlertMutation = useResolveAlert();
+  const createMaintenanceMutation = useCreateMaintenance();
+
+  const { data: backendMachinesData } = useMachines();
+  const { data: backendAlertsData } = useAlerts();
+  const { data: backendMaintData } = useMaintenanceRecords();
+  const { data: backendDatasetsData } = useDatasets();
+  const { data: backendModelsData } = useModels();
 
   const [currentPage, setCurrentPage] = useState<NavPage>('overview');
-  const [selectedMachineId, setSelectedMachineId] = useState<string>('m-fd001-03');
+  const [selectedMachineId, setSelectedMachineId] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [schemaMappingDatasetId, setSchemaMappingDatasetId] = useState<string>('');
 
-  // Core application entities (seeded demo state)
-  const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
-  const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
-  const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>(INITIAL_MAINTENANCE_RECORDS);
-  const [datasets, setDatasets] = useState(INITIAL_DATASETS);
-  const [schemaMappingDatasetId, setSchemaMappingDatasetId] = useState<string>('ds-ai4i-sample');
+  // Transform backend entities to UI types
+  const machines: Machine[] = (backendMachinesData?.items || []).map(mapBackendMachineToMachine);
+  const alerts: Alert[] = (backendAlertsData?.items || []).map((a) => {
+    const matchedMachine = machines.find((m) => m.id === a.machine_id);
+    return mapBackendAlertToAlert(a, matchedMachine?.machineCode);
+  });
+  const maintenanceRecords: MaintenanceRecord[] = (backendMaintData?.items || []).map((m) => {
+    const matchedMachine = machines.find((mach) => mach.id === m.machine_id);
+    return mapBackendMaintenanceToRecord(m, matchedMachine?.machineCode);
+  });
 
-  // Login handler
-  const handleLogin = (role: Role) => {
-    setCurrentUser({
-      id: role === 'admin' ? 'usr-adm-01' : 'usr-eng-01',
-      email: role === 'admin' ? 'admin@demo.internal' : 'engineer@demo.internal',
-      fullName: role === 'admin' ? 'Chief Administrator' : 'Demo Reliability Engineer',
-      role,
-    });
-    setIsAuthenticated(true);
-    setCurrentPage('overview');
-  };
+  const datasets: Dataset[] = (backendDatasetsData?.items || []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    version: 'v1.0',
+    adapterKey: 'cmapss_fd001',
+    adapterVersion: '1.0.0',
+    dataOrigin: 'simulated',
+    isDemo: d.name.toLowerCase().includes('demo') || d.slug.includes('demo'),
+    status: (d.status === 'incompatible' ? 'rejected_incompatible' : d.status) as any,
+    checksumSha256: d.schema_mapping_hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    rowCount: d.row_count || 0,
+    unitCount: d.unit_count || 100,
+    uploadedBy: 'admin',
+    uploadedAt: d.created_at,
+  }));
+
+  const models: ModelVersion[] = (backendModelsData || []).map((m) => ({
+    id: m.id,
+    name: `${m.model_type} (${m.bundle_version})`,
+    version: m.bundle_version,
+    task: m.task as any,
+    modelType: m.model_type,
+    adapterKey: m.adapter_key,
+    status: m.is_active ? 'active' : 'registered',
+    horizon: m.horizon ?? 30,
+    horizonUnit: m.horizon_unit ?? 'cycles',
+    decisionThreshold: m.decision_threshold ?? 0.5,
+    trainingDataset: 'NASA C-MAPSS FD001 Train',
+    trainingDate: m.created_at,
+    gitCommit: 'main',
+    modelCard: {
+      targetDefinition: 'Binary failure indicator within H cycles',
+      calibrationInfo: 'Platt scaling / Sigmoid calibrated',
+      featuresUsed: m.input_features || [],
+      intendedUse: 'Simulated turbofan engine degradation monitoring',
+      limitations: 'Trained exclusively on C-MAPSS FD001 single-condition simulated data',
+    },
+  }));
+
+  // Resolve selected machine
+  const effectiveSelectedId = selectedMachineId || machines[0]?.id || '';
+  const selectedMachine = machines.find((m) => m.id === effectiveSelectedId) || machines[0];
+
+  // Telemetry for selected machine
+  const { data: sensorHistoryData } = useSensorHistory(effectiveSelectedId, { downsample_to: 100 });
+  const sensorHistory = (sensorHistoryData?.readings || []).map((r: any) => ({
+    cycle: r.cycle,
+    sensor_1: r.sensors?.sensor_1,
+    sensor_2: r.sensors?.sensor_2,
+    sensor_3: r.sensors?.sensor_3,
+    sensor_4: r.sensors?.sensor_4,
+    sensor_7: r.sensors?.sensor_7,
+    sensor_8: r.sensors?.sensor_8,
+    sensor_9: r.sensors?.sensor_9,
+    sensor_11: r.sensors?.sensor_11,
+    sensor_12: r.sensors?.sensor_12,
+    sensor_13: r.sensors?.sensor_13,
+    sensor_14: r.sensors?.sensor_14,
+    sensor_15: r.sensors?.sensor_15,
+    sensor_17: r.sensors?.sensor_17,
+    sensor_20: r.sensors?.sensor_20,
+    sensor_21: r.sensors?.sensor_21,
+    op_setting_1: r.op_setting_1,
+    op_setting_2: r.op_setting_2,
+  }));
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    setAuthToken(null);
+    refetchUser();
   };
 
-  const handleSwitchRole = (role: Role) => {
-    setCurrentUser((prev) => ({
-      ...prev,
-      role,
-      fullName: role === 'admin' ? 'Chief Administrator' : 'Demo Reliability Engineer',
-      email: role === 'admin' ? 'admin@demo.internal' : 'engineer@demo.internal',
-    }));
-  };
-
-  // PRD §FR-2 & FR-11 Reset Demo Data action
   const handleResetDemo = () => {
-    setMachines(INITIAL_MACHINES);
-    setAlerts(INITIAL_ALERTS);
-    setMaintenanceRecords(INITIAL_MAINTENANCE_RECORDS);
-    setDatasets(INITIAL_DATASETS);
-    resetDemoMutation.mutate(undefined, {
-      onError: (err) => {
-        console.warn('Backend demo reset skipped or unavailable:', err);
-      },
-    });
+    resetDemoMutation.mutate();
   };
 
-  // Alert acknowledgment
   const handleAcknowledgeAlert = (alertId: string) => {
-    setAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId
-          ? {
-              ...a,
-              status: 'acknowledged',
-              acknowledgedBy: currentUser.email,
-              acknowledgedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
-            }
-          : a
-      )
-    );
+    acknowledgeAlertMutation.mutate({ alertId });
   };
 
-  // Alert resolution
   const handleResolveAlert = (
     alertId: string,
     resolutionType: 'issue_resolved' | 'false_alarm' | 'no_action_needed',
     note: string
   ) => {
-    setAlerts((prev) =>
-      prev.map((a) =>
-        a.id === alertId
-          ? {
-              ...a,
-              status: 'resolved',
-              resolutionType,
-              resolutionNote: note,
-              resolvedBy: currentUser.email,
-              resolvedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
-            }
-          : a
-      )
-    );
+    resolveAlertMutation.mutate({ alertId, resolutionType, resolutionNote: note });
   };
 
-  // Record maintenance action & synchronize machine operational status (PRD §FR-14)
   const handleRecordMaintenance = (
     recordData: Omit<MaintenanceRecord, 'id' | 'performedAt'>
   ) => {
-    const newRecord: MaintenanceRecord = {
-      ...recordData,
-      id: `maint-${Date.now()}`,
-      performedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
-    };
-
-    setMaintenanceRecords((prev) => [newRecord, ...prev]);
-
-    // Machine status side-effect per PRD §FR-14:
-    // in_progress sets operational_status to maintenance
-    // completed with resolved or no_issue_found returns it to active
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.id === recordData.machineId) {
-          const nextStatus =
-            recordData.status === 'in_progress'
-              ? 'maintenance'
-              : recordData.outcome === 'resolved' || recordData.outcome === 'no_issue_found'
-              ? 'active'
-              : m.operationalStatus;
-          return {
-            ...m,
-            operationalStatus: nextStatus,
-          };
-        }
-        return m;
-      })
-    );
-
-    // If related alert exists and outcome is resolved, auto-resolve alert
-    if (recordData.alertId && (recordData.outcome === 'resolved' || recordData.outcome === 'no_issue_found')) {
-      handleResolveAlert(recordData.alertId, 'issue_resolved', recordData.actionTaken);
-    }
+    createMaintenanceMutation.mutate({
+      machine_id: recordData.machineId,
+      alert_id: recordData.alertId,
+      issue: recordData.issue,
+      recommended_action: recordData.recommendedAction,
+      decision: recordData.decision,
+      decision_rationale: recordData.decisionRationale,
+      action_taken: recordData.actionTaken,
+      notes: recordData.notes,
+    });
   };
 
-  // Open machine detail page
   const handleSelectMachine = (machineId: string) => {
     setSelectedMachineId(machineId);
     setCurrentPage('machines');
   };
 
-  // Open schema mapping page for a dataset
   const handleViewSchemaMapping = (datasetId: string) => {
     setSchemaMappingDatasetId(datasetId);
     setCurrentPage('datasets');
   };
 
-  // Ingestion success simulation
   const handleIngestSuccess = () => {
     setCurrentPage('overview');
   };
 
-  const selectedMachine =
-    machines.find((m) => m.id === selectedMachineId) || machines[0];
-  const openAlertsCount = alerts.filter((a) => a.status === 'open').length;
-
-  // Unauthenticated screen
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
+  // Route Guard: Loading
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0e16] flex items-center justify-center text-slate-400 font-mono text-xs">
+        <Loader2 className="w-5 h-5 animate-spin mr-2 text-blue-500" />
+        Verifying station authentication...
+      </div>
+    );
   }
+
+  // Route Guard: Unauthenticated -> render real LoginPage
+  if (!currentUser) {
+    return <LoginPage onLogin={() => refetchUser()} />;
+  }
+
+  const openAlertsCount = alerts.filter((a) => a.status === 'open').length;
 
   return (
     <AppLayout
       currentPage={currentPage}
       onNavigate={setCurrentPage}
       currentUser={currentUser}
-      onSwitchRole={handleSwitchRole}
       openAlertCount={openAlertsCount}
       onResetDemo={handleResetDemo}
       onLogout={handleLogout}
@@ -211,7 +312,7 @@ export function App() {
         />
       )}
 
-      {/* Fleet List / Grid */}
+      {/* Fleet Inventory */}
       {currentPage === 'fleet' && (
         <FleetPage
           machines={machines}
@@ -220,17 +321,12 @@ export function App() {
       )}
 
       {/* Machine Details */}
-      {currentPage === 'machines' && (
+      {currentPage === 'machines' && selectedMachine && (
         <MachineDetailPage
           machine={selectedMachine}
           alerts={alerts}
-          maintenanceRecords={maintenanceRecords.filter(
-            (r) => r.machineId === selectedMachine.id
-          )}
-          sensorHistory={generateSensorHistory(
-            selectedMachine.id,
-            selectedMachine.currentCycle
-          )}
+          maintenanceRecords={maintenanceRecords.filter((r) => r.machineId === selectedMachine.id)}
+          sensorHistory={sensorHistory}
           onBack={() => setCurrentPage('fleet')}
           currentUserRole={currentUser.role}
           onAcknowledgeAlert={handleAcknowledgeAlert}
@@ -238,7 +334,7 @@ export function App() {
         />
       )}
 
-      {/* Datasets List or Schema Mapping Wizard */}
+      {/* Datasets Management */}
       {currentPage === 'datasets' && (
         schemaMappingDatasetId ? (
           <DatasetSchemaMappingPage
@@ -251,14 +347,15 @@ export function App() {
             datasets={datasets}
             currentUserRole={currentUser.role}
             onOpenUploadWizard={() => {
-              setSchemaMappingDatasetId('ds-fd001-demo');
+              const firstDs = datasets[0]?.id || 'cmapss-fd001';
+              setSchemaMappingDatasetId(firstDs);
             }}
             onViewSchemaMapping={handleViewSchemaMapping}
           />
         )
       )}
 
-      {/* Predictions & Scoring Runs */}
+      {/* Predictions & Inference */}
       {currentPage === 'predictions' && (
         <PredictionsPage
           machines={machines}
@@ -267,7 +364,7 @@ export function App() {
         />
       )}
 
-      {/* Alerts */}
+      {/* Operational Alerts */}
       {currentPage === 'alerts' && (
         <AlertsPage
           alerts={alerts}
@@ -278,7 +375,7 @@ export function App() {
         />
       )}
 
-      {/* Maintenance */}
+      {/* Maintenance Workflow */}
       {currentPage === 'maintenance' && (
         <MaintenancePage
           records={maintenanceRecords}
@@ -288,32 +385,31 @@ export function App() {
 
       {/* Model Performance */}
       {currentPage === 'model-performance' && (
-        <ModelPerformancePage
-          evaluation={INITIAL_EVALUATION}
-          activeModels={INITIAL_MODELS}
-        />
+        <ModelPerformancePage />
       )}
 
       {/* Model Registry */}
       {currentPage === 'models' && (
         <ModelRegistryPage
-          models={INITIAL_MODELS}
+          models={models}
           onViewModelPerformance={() => setCurrentPage('model-performance')}
         />
       )}
 
-      {/* Settings */}
+      {/* System Settings */}
       {currentPage === 'settings' && (
         <SettingsPage currentUserRole={currentUser.role} />
       )}
 
-      {/* First-Run Onboarding Acceptance Modal */}
+      {/* Onboarding Tour Modal */}
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={() => setIsOnboardingOpen(false)}
         onStartDemoJourney={() => {
           setIsOnboardingOpen(false);
-          handleSelectMachine('m-fd001-03');
+          if (machines.length > 0) {
+            handleSelectMachine(machines[0].id);
+          }
         }}
       />
     </AppLayout>

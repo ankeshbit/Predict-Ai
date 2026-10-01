@@ -36,6 +36,7 @@ def _slugify(text: str) -> str:
     return re.sub(r"[-\s]+", "-", s)
 
 
+@router.post("", response_model=DatasetUploadResponse, status_code=201)
 @router.post("/upload", response_model=DatasetUploadResponse, status_code=201)
 def upload_dataset(
     file: UploadFile = File(...),
@@ -252,6 +253,37 @@ def check_dataset_compatibility(
         passed_checks=report.passed_checks,
         failed_checks=report.failed_checks,
         checks=report.to_dict()["checks"],
+    )
+
+
+@router.get("/{dataset_id}/compatibility", response_model=CompatibilityCheckResponse)
+def get_dataset_compatibility(
+    dataset_id: uuid.UUID,
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Retrieves the latest PRD FR-6 compatibility check report for a dataset (PRD §14.3)."""
+    dataset = db.get(Dataset, dataset_id)
+    if not dataset:
+        raise NotFoundError(message=f"Dataset with id {dataset_id} not found")
+
+    check = db.scalar(
+        select(DatasetCompatibilityCheck)
+        .where(DatasetCompatibilityCheck.dataset_id == dataset_id)
+        .order_by(DatasetCompatibilityCheck.checked_at.desc())
+        .limit(1)
+    )
+    if not check:
+        raise NotFoundError(message=f"No compatibility checks found for dataset {dataset_id}")
+
+    rep = check.report
+    return CompatibilityCheckResponse(
+        dataset_id=dataset.id,
+        passed=check.status == "passed",
+        total_checks=rep.get("total_checks", len(rep.get("checks", []))),
+        passed_checks=rep.get("passed_checks", 0),
+        failed_checks=rep.get("failed_checks", 0),
+        checks=rep.get("checks", []),
     )
 
 

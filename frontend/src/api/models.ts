@@ -59,10 +59,20 @@ export function useModels() {
   });
 }
 
+export function useActiveModels() {
+  return useQuery({
+    queryKey: ['activeModels'],
+    queryFn: () => apiFetch<BackendModelVersion[]>('/models/active'),
+  });
+}
+
 export function useActiveModel() {
   return useQuery({
     queryKey: ['activeModel'],
-    queryFn: () => apiFetch<BackendModelVersion>('/models/active'),
+    queryFn: async () => {
+      const list = await apiFetch<BackendModelVersion[]>('/models/active');
+      return list.length > 0 ? list[0] : null;
+    },
   });
 }
 

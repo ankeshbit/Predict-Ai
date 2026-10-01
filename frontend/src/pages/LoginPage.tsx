@@ -1,21 +1,45 @@
 import React, { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import type { Role } from '../types';
-import { ArrowRight, ShieldCheck, Mail, Lock, Activity } from 'lucide-react';
+import type { User } from '../types';
+import { useLogin } from '../api';
+import { ArrowRight, ShieldCheck, Mail, Lock, Activity, AlertCircle } from 'lucide-react';
 
 interface LoginPageProps {
-  onLogin: (role: Role) => void;
+  onLogin: (user: User) => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('engineer@predicore.internal');
-  const [password, setPassword] = useState('••••••••••••');
+  const [password, setPassword] = useState('EngineerSecret123!');
   const [rememberMe, setRememberMe] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const loginMutation = useLogin();
+
+  const handlePerformLogin = (loginEmail: string, loginPass: string) => {
+    setErrorMessage(null);
+    loginMutation.mutate(
+      { email: loginEmail, password: loginPass },
+      {
+        onSuccess: (data) => {
+          onLogin({
+            id: data.user.id,
+            email: data.user.email,
+            fullName: data.user.role === 'admin' ? 'System Administrator' : 'Reliability Engineer',
+            role: data.user.role,
+          });
+        },
+        onError: (err: any) => {
+          setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+        },
+      }
+    );
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin('engineer');
+    handlePerformLogin(email, password);
   };
 
   return (
@@ -57,26 +81,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           {/* 4 Analytical Capability Indicators */}
           <div className="grid grid-cols-2 gap-3 pt-2">
             <div className="p-3.5 rounded-md bg-[#111620] border border-[#1f2838] space-y-1">
-              <div className="text-[10px] font-mono uppercase text-slate-400">Calibrated ROC-AUC</div>
-              <div className="text-xl font-bold font-mono text-blue-400">0.946</div>
+              <div className="text-[10px] font-mono uppercase text-slate-400">Calibrated Evaluation</div>
+              <div className="text-sm font-bold font-mono text-blue-400">GroupKFold</div>
               <div className="text-[10px] font-mono text-slate-400">Held-out engine split</div>
             </div>
 
             <div className="p-3.5 rounded-md bg-[#111620] border border-[#1f2838] space-y-1">
               <div className="text-[10px] font-mono uppercase text-slate-400">Prediction Horizon</div>
-              <div className="text-xl font-bold font-mono text-slate-100">H = 30</div>
-              <div className="text-[10px] font-mono text-slate-400">Operating cycles</div>
+              <div className="text-sm font-bold font-mono text-slate-100">H = 30 Cycles</div>
+              <div className="text-[10px] font-mono text-slate-400">Configured unit horizon</div>
             </div>
 
             <div className="p-3.5 rounded-md bg-[#111620] border border-[#1f2838] space-y-1">
-              <div className="text-[10px] font-mono uppercase text-slate-400">Class-Imbalance PR-AUC</div>
-              <div className="text-xl font-bold font-mono text-emerald-400">0.892</div>
-              <div className="text-[10px] font-mono text-slate-400">Baseline 0.320</div>
+              <div className="text-[10px] font-mono uppercase text-slate-400">Class Imbalance</div>
+              <div className="text-sm font-bold font-mono text-emerald-400">PR-AUC Optimized</div>
+              <div className="text-[10px] font-mono text-slate-400">Calibrated probabilities</div>
             </div>
 
             <div className="p-3.5 rounded-md bg-[#111620] border border-[#1f2838] space-y-1">
               <div className="text-[10px] font-mono uppercase text-slate-400">Explainability</div>
-              <div className="text-xl font-bold font-mono text-slate-200">SHAP</div>
+              <div className="text-sm font-bold font-mono text-slate-200">SHAP Attributions</div>
               <div className="text-[10px] font-mono text-slate-400">Local feature attribution</div>
             </div>
           </div>
@@ -98,6 +122,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
               Access the operational fleet console and inference engine
             </p>
           </div>
+
+          {errorMessage && (
+            <div className="p-3 rounded-md bg-rose-950/40 border border-rose-800/60 flex items-start gap-2 text-rose-300 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
             <Input
@@ -130,19 +161,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 />
                 <span>Remember session</span>
               </label>
-              <span className="text-xs text-slate-400 hover:text-slate-300 cursor-pointer">
-                Forgot passcode?
-              </span>
             </div>
 
             <Button
               type="submit"
               variant="primary"
               size="md"
+              disabled={loginMutation.isPending}
               className="w-full mt-2"
               icon={<ArrowRight className="w-4 h-4" />}
             >
-              Sign In to Workstation
+              {loginMutation.isPending ? 'Authenticating...' : 'Sign In to Workstation'}
             </Button>
           </form>
 
@@ -157,7 +186,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => onLogin('engineer')}
+                disabled={loginMutation.isPending}
+                onClick={() => {
+                  setEmail('engineer@predicore.internal');
+                  setPassword('EngineerSecret123!');
+                  handlePerformLogin('engineer@predicore.internal', 'EngineerSecret123!');
+                }}
                 className="w-full text-xs text-slate-200 justify-center"
               >
                 Sign In as Reliability Engineer (Operator)
@@ -167,7 +201,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onLogin('admin')}
+                disabled={loginMutation.isPending}
+                onClick={() => {
+                  setEmail('admin@predicore.internal');
+                  setPassword('AdminSecret123!');
+                  handlePerformLogin('admin@predicore.internal', 'AdminSecret123!');
+                }}
                 className="w-full text-xs text-slate-400 hover:text-slate-200 justify-center border-[#233148]"
               >
                 Sign In as System Administrator (Governance)

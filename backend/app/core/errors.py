@@ -107,6 +107,16 @@ class BadRequestError(AppError):
         )
 
 
+class ValidationError(AppError):
+    def __init__(self, code: str = "VALIDATION_ERROR", message: str = "Validation failed", details: Optional[Any] = None):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code=code,
+            message=message,
+            details=details,
+        )
+
+
 class InternalServerError(AppError):
     def __init__(self, code: str = "INTERNAL_SERVER_ERROR", message: str = "Internal server error", details: Optional[Any] = None):
         super().__init__(
