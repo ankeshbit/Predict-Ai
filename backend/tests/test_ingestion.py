@@ -8,7 +8,7 @@ import pytest
 from app.models.entities import Dataset, Job, Machine, SensorReading
 from app.services.ingestion import run_ingestion_job
 
-FIXTURES_DIR = Path("database/sample_data").resolve()
+FIXTURES_DIR = (Path(__file__).resolve().parent.parent.parent / "database" / "sample_data").resolve()
 
 
 def test_ingestion_lifecycle_and_job_polling(client, admin_headers, engineer_headers, db):
@@ -49,7 +49,7 @@ def test_ingestion_lifecycle_and_job_polling(client, admin_headers, engineer_hea
     job_res = client.get(f"/api/v1/jobs/{job_id_str}", headers=engineer_headers)
     assert job_res.status_code == 200
     job_data = job_res.json()
-    assert job_data["status"] == "completed"
+    assert job_data["status"] == "completed", f"Job failed: {job_data}"
     assert job_data["progress_pct"] == 100.0
     assert job_data["result"]["rows_ingested"] == 200  # 5 units × 40 cycles
     assert job_data["result"]["units_ingested"] == 5

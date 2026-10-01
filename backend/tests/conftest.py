@@ -1,40 +1,81 @@
 """
 Pytest fixtures and test database harness for backend tests.
-Uses an isolated in-memory SQLite database with StaticPool.
+Uses an isolated PostgreSQL database running on localhost or via TEST_DATABASE_URL.
+Migrations are applied via Alembic (no create_all).
+Tables are cleanly truncated between tests.
 """
 
 import os
 import uuid
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-# Ensure fast timeout in tests so DB connection attempts don't stall
-os.environ.setdefault("DB_CONNECT_TIMEOUT", "1")
+from alembic import command
+from alembic.config import Config
 
-from app.core.db import Base, get_db
+from app.core.config import settings
+from app.core.db import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.entities import HealthIndicatorConfig, User
 
-# Test in-memory SQLite database
-TEST_DATABASE_URL = "sqlite:///:memory:"
+# Ensure fast timeout in tests so DB connection attempts don't stall
+os.environ.setdefault("DB_CONNECT_TIMEOUT", "2")
+
+# Database URL for tests - points to PostgreSQL 16
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    settings.DATABASE_URL or "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
+)
 
 test_engine = create_engine(
     TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
+    pool_pre_ping=True,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+ALL_TABLES = [
+    "audit_log",
+    "jobs",
+    "settings",
+    "alert_rules",
+    "maintenance_records",
+    "alerts",
+    "anomalies",
+    "predictions",
+    "health_indicator_configs",
+    "model_evaluations",
+    "model_versions",
+    "sensor_readings",
+    "machines",
+    "dataset_compatibility_checks",
+    "datasets",
+    "users",
+]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def apply_migrations():
+    """Ensure database schema is up-to-date with Alembic migrations before running any tests."""
+    backend_dir = Path(__file__).resolve().parent.parent
+    alembic_ini_path = backend_dir / "alembic.ini"
+    alembic_cfg = Config(str(alembic_ini_path))
+    alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
+    command.upgrade(alembic_cfg, "head")
 
 
 @pytest.fixture(scope="function")
 def db():
-    """Creates a fresh database schema for every test function."""
-    Base.metadata.create_all(bind=test_engine)
+    """Provides a clean database session for each test function, seeded with default admin/engineer/health_config."""
+    with test_engine.connect() as conn:
+        truncate_sql = f"TRUNCATE TABLE {', '.join(ALL_TABLES)} RESTART IDENTITY CASCADE;"
+        conn.execute(text(truncate_sql))
+        conn.commit()
+
     session = TestingSessionLocal()
 
     # Seed initial test users
@@ -71,7 +112,6 @@ def db():
     yield session
 
     session.close()
-    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture(scope="function")

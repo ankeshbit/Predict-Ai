@@ -41,16 +41,27 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("slug", sa.String(255), unique=True, nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("version", sa.String(32), nullable=False, server_default="1.0"),
+        sa.Column("filename", sa.String(512), nullable=True),
+        sa.Column("staging_filename", sa.String(512), nullable=True),
+        sa.Column("file_size_bytes", sa.BigInteger(), nullable=True),
+        sa.Column("file_sha256", sa.String(64), nullable=True),
+        sa.Column("row_count", sa.Integer(), nullable=True),
+        sa.Column("unit_count", sa.Integer(), nullable=True),
+        sa.Column("schema_mapping", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("schema_mapping_hash", sa.String(64), nullable=True),
         sa.Column("data_origin", sa.String(64), nullable=False, server_default="simulated"),
         sa.Column("is_demo", sa.Boolean(), nullable=False, server_default="false"),
         sa.Column("adapter_key", sa.String(64), nullable=False, server_default="cmapss_fd001"),
         sa.Column("status", sa.String(32), nullable=False, server_default="uploaded"),
-        sa.Column("raw_file_path", sa.String(512), nullable=True),
-        sa.Column("file_sha256", sa.String(64), nullable=True),
-        sa.Column("total_rows", sa.Integer(), nullable=True),
-        sa.Column("total_units", sa.Integer(), nullable=True),
+        sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("created_by_user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.CheckConstraint(
+            "status IN ('uploaded', 'valid', 'invalid', 'compatible', 'rejected_incompatible', 'ingesting', 'ingested', 'failed')",
+            name="check_dataset_status",
+        ),
     )
     op.create_index("ix_datasets_slug", "datasets", ["slug"])
 
@@ -59,9 +70,13 @@ def upgrade() -> None:
         "dataset_compatibility_checks",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("dataset_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("passed", sa.Boolean(), nullable=False),
-        sa.Column("check_results", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("schema_mapping_hash", sa.String(64), nullable=False),
+        sa.Column("check_number", sa.Integer(), nullable=False),
+        sa.Column("check_name", sa.String(128), nullable=False),
+        sa.Column("status", sa.String(32), nullable=False),
+        sa.Column("expected_value", sa.Text(), nullable=True),
+        sa.Column("found_value", sa.Text(), nullable=True),
+        sa.Column("how_to_fix", sa.Text(), nullable=True),
+        sa.Column("details", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("checked_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
 
@@ -78,7 +93,7 @@ def upgrade() -> None:
         sa.Column("demo_cluster", sa.String(32), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.CheckConstraint("operational_status IN ('active', 'maintenance', 'degraded', 'offline')", name="check_machine_status"),
+        sa.CheckConstraint("operational_status IN ('active', 'warning', 'critical', 'maintenance', 'degraded', 'offline')", name="check_machine_status"),
     )
     op.create_index("ix_machines_machine_code", "machines", ["machine_code"])
 
@@ -87,7 +102,8 @@ def upgrade() -> None:
         "sensor_readings",
         sa.Column("id", sa.BigInteger().with_variant(sa.Integer, "sqlite"), primary_key=True, autoincrement=True),
         sa.Column("machine_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("machines.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("cycle", sa.Integer(), nullable=False),
+        sa.Column("dataset_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("datasets.id", ondelete="CASCADE"), nullable=True),
+        sa.Column("cycle_index", sa.Integer(), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("op_setting_1", sa.Float(), nullable=True),
         sa.Column("op_setting_2", sa.Float(), nullable=True),
@@ -96,8 +112,9 @@ def upgrade() -> None:
         sa.Column("imputed_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
     op.create_index("ix_sensor_readings_machine_id", "sensor_readings", ["machine_id"])
-    op.create_index("ix_sensor_readings_cycle", "sensor_readings", ["cycle"])
-    op.create_index("uq_machine_cycle", "sensor_readings", ["machine_id", "cycle"], unique=True)
+    op.create_index("ix_sensor_readings_cycle_index", "sensor_readings", ["cycle_index"])
+    op.create_index("uq_machine_dataset_cycle", "sensor_readings", ["machine_id", "dataset_id", "cycle_index"], unique=True)
+    op.create_index("uq_machine_cycle", "sensor_readings", ["machine_id", "cycle_index"], unique=True)
 
     # 6. model_versions
     op.create_table(
@@ -237,6 +254,7 @@ def upgrade() -> None:
         sa.Column("resolved_by_user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.CheckConstraint("status IN ('open', 'acknowledged', 'resolved')", name="check_alert_status"),
+        sa.CheckConstraint("severity IN ('warning', 'critical')", name="check_alert_severity"),
     )
     op.create_index("ix_alerts_machine_id", "alerts", ["machine_id"])
     if bind.dialect.name == "postgresql":
@@ -293,11 +311,10 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("job_type", sa.String(64), nullable=False),
         sa.Column("status", sa.String(32), nullable=False, server_default="queued"),
-        sa.Column("progress_percent", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("message", sa.Text(), nullable=True),
-        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("progress_pct", sa.Float(), nullable=False, server_default="0.0"),
+        sa.Column("input_params", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("error", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("created_by_user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),

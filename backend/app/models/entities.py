@@ -21,6 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -65,6 +66,7 @@ class Dataset(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    version: Mapped[str] = mapped_column(String(32), default="1.0", nullable=False)
     # Original filename from uploader, kept for display
     filename: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     # Secure staging filename (UUID-based, written by upload service)
@@ -84,6 +86,13 @@ class Dataset(Base):
     created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('uploaded', 'validating', 'validated', 'compatible', 'rejected_incompatible', 'ingesting', 'ingested', 'failed')",
+            name="check_dataset_status",
+        ),
+    )
 
     compatibility_checks = relationship("DatasetCompatibilityCheck", back_populates="dataset", cascade="all, delete-orphan")
 
@@ -137,8 +146,17 @@ class SensorReading(Base):
 
     id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     machine_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False, index=True)
-    cycle: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    dataset_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="CASCADE"), nullable=True, index=True)
+    cycle_index: Mapped[int] = mapped_column("cycle_index", Integer, nullable=False, index=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    @hybrid_property
+    def cycle(self) -> int:
+        return self.cycle_index
+
+    @cycle.setter
+    def cycle(self, val: int) -> None:
+        self.cycle_index = val
 
     op_setting_1: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     op_setting_2: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
@@ -172,7 +190,8 @@ class SensorReading(Base):
     machine = relationship("Machine", back_populates="readings")
 
     __table_args__ = (
-        Index("uq_machine_cycle", "machine_id", "cycle", unique=True),
+        Index("uq_machine_dataset_cycle", "machine_id", "dataset_id", "cycle_index", unique=True),
+        Index("uq_machine_cycle", "machine_id", "cycle_index", unique=True),
     )
 
 

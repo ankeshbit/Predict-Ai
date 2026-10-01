@@ -12,7 +12,7 @@ from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.models.entities import Dataset
 from app.services.compatibility import run_fr6_compatibility_checks
 
-FIXTURES_DIR = Path("database/sample_data").resolve()
+FIXTURES_DIR = (Path(__file__).resolve().parent.parent.parent / "database" / "sample_data").resolve()
 
 
 def _generate_valid_df(units=2, cycles=40):

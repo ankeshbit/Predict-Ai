@@ -99,7 +99,10 @@ def run_ingestion_job(
         job.progress_pct = 60.0
         db.commit()
 
-        # 5. Insert SensorReadings in chunks
+        # 5. Insert SensorReadings in chunks (clearing any existing readings for idempotent re-ingestion)
+        db.query(SensorReading).filter(SensorReading.dataset_id == dataset.id).delete()
+        db.commit()
+
         sensor_cols = [c for c in adapter.canonical_columns if c not in ["unit_id", "cycle"]]
         total_rows = len(df)
         chunk_size = 5000
@@ -110,7 +113,8 @@ def run_ingestion_job(
             m_id = machine_map[int(row["unit_id"])]
             reading_dict = {
                 "machine_id": m_id,
-                "cycle": int(row["cycle"]),
+                "dataset_id": dataset.id,
+                "cycle_index": int(row["cycle"]),
                 "recorded_at": now_utc,
             }
             for col in sensor_cols:
