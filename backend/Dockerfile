@@ -13,7 +13,7 @@ COPY backend/ /app/backend/
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/backend/requirements-inference.txt && \
-    pip install --no-cache-dir -e /app/backend
+    pip install --no-cache-dir -c /app/backend/requirements-inference.txt -e /app/backend
 
 FROM python:3.12-slim AS runner
 

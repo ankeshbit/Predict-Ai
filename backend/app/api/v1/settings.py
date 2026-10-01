@@ -128,20 +128,20 @@ def get_alert_rules(
         defaults = [
             AlertRule(
                 id=uuid.uuid4(),
-                rule_id="RULE_FAILURE_RISK_70",
+                rule_id="RULE_HIGH_FAILURE_RISK",
                 alert_type="high_failure_risk",
-                failure_probability_threshold=0.70,
+                failure_probability_threshold=0.50,
                 anomaly_severity_threshold="critical",
-                consecutive_cycles=2,
+                consecutive_cycles=3,
                 is_active=True,
             ),
             AlertRule(
                 id=uuid.uuid4(),
-                rule_id="RULE_ANOMALY_80",
+                rule_id="RULE_SEVERE_ANOMALY",
                 alert_type="severe_anomaly",
                 failure_probability_threshold=0.50,
                 anomaly_severity_threshold="warning",
-                consecutive_cycles=1,
+                consecutive_cycles=2,
                 is_active=True,
             ),
             AlertRule(

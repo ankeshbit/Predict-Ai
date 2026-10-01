@@ -83,15 +83,35 @@ def register_model_bundle(
 
     # Extract version details
     model_version_str = model_card.get("model_version", metadata.get("model_version", root.name))
-    training_methodology = model_card.get("training_methodology", {})
+    training_methodology = model_card.get("training_methodology")
+    if not training_methodology:
+        raise ValueError(f"Missing required 'training_methodology' in model card: {model_card_path}")
     selected_model = training_methodology.get("selected_model", "XGBoostClassifier")
+
     features_info = model_card.get("features", {})
     active_sensors = features_info.get("active_sensors", metadata.get("feature_config", {}).get("active_sensors", []))
-    horizon_info = model_card.get("failure_horizon", {})
-    horizon_val = horizon_info.get("value", 30)
+
+    # Strict check: failure_horizon must be explicitly defined
+    horizon_info = model_card.get("failure_horizon")
+    if not horizon_info or "value" not in horizon_info:
+        raise ValueError(f"Missing required 'failure_horizon.value' in model card: {model_card_path}")
+    horizon_val = int(horizon_info["value"])
     horizon_unit = horizon_info.get("unit", "operating_cycles")
-    threshold_info = training_methodology.get("threshold", {})
-    decision_threshold = threshold_info.get("value", 0.50)
+
+    # Strict check: decision threshold must be explicitly defined
+    threshold_info = training_methodology.get("threshold")
+    if not threshold_info or "value" not in threshold_info:
+        raise ValueError(f"Missing required 'training_methodology.threshold.value' in model card: {model_card_path}")
+    decision_threshold = float(threshold_info["value"])
+
+    # Strict check: evaluation dates must be explicitly defined
+    eval_date = model_card.get("evaluation_date")
+    if not eval_date:
+        raise ValueError(f"Missing required 'evaluation_date' in model card: {model_card_path}")
+    training_timestamp = model_card.get("training_timestamp")
+    if not training_timestamp:
+        raise ValueError(f"Missing required 'training_timestamp' in model card: {model_card_path}")
+
     metrics_data = model_card.get("metrics", {})
     limitations_data = model_card.get("limitations", [])
 
@@ -257,53 +277,70 @@ def seed_demo_engines(
     logger.info("Found %d demo units in reference scores: %s", len(available_units), available_units)
 
     # 1. Distinct engine selection per category (Healthy, Warning, Critical)
-    # Healthy: health >= 71
-    # Warning: 51 <= health <= 70
-    # Critical: health <= 30
-    chosen_triplet = None
-    for u_h in available_units:
-        h_scores = scores_df[scores_df[unit_col] == u_h]
-        h_matches = h_scores[h_scores[health_col] >= 71.0]
-        if h_matches.empty:
+    # Warning machine = the engine/cutoff with the widest Warning window (prefer engines 77, 29, 70)
+    # Critical machine = engine 48 or 97 at the final cycle
+    # Healthy machine = any other distinct engine at an early Excellent cycle
+
+    # Warning selection: widest warning window
+    chosen_warning_unit = None
+    chosen_warning_cutoff = None
+    max_warning_span = 0
+    for u in [77, 29, 70] + [x for x in available_units if x not in [77, 29, 70]]:
+        if u not in available_units:
             continue
-        h_cutoff = int(min(h_matches.iloc[-1][cycle_col], 50))
+        w_scores = scores_df[scores_df[unit_col] == u]
+        w_matches = w_scores[(w_scores[health_col] >= 51.0) & (w_scores[health_col] <= 70.0)]
+        if len(w_matches) > max_warning_span:
+            max_warning_span = len(w_matches)
+            chosen_warning_unit = u
+            chosen_warning_cutoff = int(w_matches.iloc[len(w_matches) // 2][cycle_col])
 
-        for u_w in available_units:
-            if u_w == u_h:
-                continue
-            w_scores = scores_df[scores_df[unit_col] == u_w]
-            w_matches = w_scores[(w_scores[health_col] >= 51.0) & (w_scores[health_col] <= 70.0)]
-            if w_matches.empty:
-                continue
-            w_cutoff = int(w_matches.iloc[-1][cycle_col])
+    if not chosen_warning_unit:
+        raise ValueError("Could not find an engine with Warning band (51 <= HI <= 70)")
 
-            for u_c in available_units:
-                if u_c == u_h or u_c == u_w:
-                    continue
-                c_scores = scores_df[scores_df[unit_col] == u_c]
-                c_matches = c_scores[c_scores[health_col] <= 30.0]
-                if c_matches.empty:
-                    continue
-                c_cutoff = int(c_matches.iloc[-1][cycle_col])
-
-                chosen_triplet = {
-                    "healthy": {"unit_id": u_h, "cutoff_cycle": h_cutoff},
-                    "warning": {"unit_id": u_w, "cutoff_cycle": w_cutoff},
-                    "critical": {"unit_id": u_c, "cutoff_cycle": c_cutoff},
-                }
+    # Critical selection: engine 48 or 97 at final cycle
+    chosen_critical_unit = None
+    chosen_critical_cutoff = None
+    for u in [48, 97]:
+        if u in available_units and u != chosen_warning_unit:
+            c_scores = scores_df[scores_df[unit_col] == u]
+            final_c = int(c_scores.iloc[-1][cycle_col])
+            final_hi = float(c_scores.iloc[-1][health_col])
+            if final_hi <= 30.0:
+                chosen_critical_unit = u
+                chosen_critical_cutoff = final_c
                 break
-            if chosen_triplet:
+
+    if not chosen_critical_unit:
+        raise ValueError("Could not find engine 48 or 97 at final cycle with Critical band (HI <= 30)")
+
+    # Healthy selection: any other distinct engine at an early Excellent cycle (HI >= 86.0)
+    chosen_healthy_unit = None
+    chosen_healthy_cutoff = None
+    for u in [70, 29, 97, 48, 77]:
+        if u in available_units and u not in (chosen_warning_unit, chosen_critical_unit):
+            h_scores = scores_df[scores_df[unit_col] == u]
+            h_matches = h_scores[h_scores[health_col] >= 86.0]
+            if not h_matches.empty:
+                chosen_healthy_unit = u
+                cand_cycle = 35 if 35 in h_matches[cycle_col].values else int(h_matches.iloc[min(20, len(h_matches) - 1)][cycle_col])
+                chosen_healthy_cutoff = cand_cycle
                 break
-        if chosen_triplet:
-            break
 
-    if not chosen_triplet:
-        raise ValueError(
-            "FATAL: Demo fleet seeding cannot proceed: Could not find 3 DISTINCT engines "
-            "satisfying all 3 health states (Healthy: HI >= 71, Warning: 51 <= HI <= 70, Critical: HI <= 30)."
-        )
+    if not chosen_healthy_unit:
+        raise ValueError("Could not find a distinct Healthy demo engine with HI >= 71")
 
-    categories = chosen_triplet
+    categories = {
+        "warning": {"unit_id": chosen_warning_unit, "cutoff_cycle": chosen_warning_cutoff},
+        "critical": {"unit_id": chosen_critical_unit, "cutoff_cycle": chosen_critical_cutoff},
+        "healthy": {"unit_id": chosen_healthy_unit, "cutoff_cycle": chosen_healthy_cutoff},
+    }
+
+    # Also register the remaining demo units so that all 5 held-out demo engines are seeded
+    for u in available_units:
+        if u not in [chosen_warning_unit, chosen_critical_unit, chosen_healthy_unit]:
+            sub = scores_df[scores_df[unit_col] == u]
+            categories[f"unit_{u}"] = {"unit_id": u, "cutoff_cycle": int(sub.iloc[-1][cycle_col])}
     logger.info("Distinct demo selection: Healthy (Unit %s, Cycle %s), Warning (Unit %s, Cycle %s), Critical (Unit %s, Cycle %s)",
                 categories["healthy"]["unit_id"], categories["healthy"]["cutoff_cycle"],
                 categories["warning"]["unit_id"], categories["warning"]["cutoff_cycle"],
@@ -379,12 +416,21 @@ def seed_demo_engines(
             op_status = "active"
             health_band = "Healthy" if category == "healthy" else ("Warning" if category == "warning" else "Critical")
 
+            clean_name = f"Turbofan Engine {u_id:03d}"
+            if category in ("healthy", "warning", "critical"):
+                clean_name += f" ({category.capitalize()} Demo)"
+
             # Check or create Machine
             machine = db.scalar(select(Machine).where(Machine.machine_code == machine_code))
             if not machine:
                 machine = Machine(
                     id=uuid.uuid4(),
                     machine_code=machine_code,
+                    name=clean_name,
+                    machine_type="Simulated Turbofan Engine (C-MAPSS FD001)",
+                    location="Test Cell A-1",
+                    notes="Held-out test engine from NASA C-MAPSS FD001 dataset",
+                    source_unit_id=u_id,
                     operational_status=op_status,
                     health_indicator=float(score_data[health_col]),
                     health_band=health_band,
@@ -394,6 +440,7 @@ def seed_demo_engines(
                 db.add(machine)
                 db.flush()
             else:
+                machine.name = clean_name
                 machine.operational_status = op_status
                 machine.health_indicator = float(score_data[health_col])
                 machine.health_band = health_band

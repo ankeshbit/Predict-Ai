@@ -77,10 +77,9 @@ def seed_defaults():
         if not cfg:
             cfg = HealthIndicatorConfig(
                 version="v1.0",
-                weight_risk=50.0,
-                weight_anomaly=30.0,
-                weight_trend=20.0,
-                trend_window=20,
+                anomaly_weight=0.30,
+                data_quality_penalty={"DATA_OK": 0.0, "DATA_WARNING": 10.0},
+                trend_enabled=False,
                 is_active=True,
             )
             db.add(cfg)

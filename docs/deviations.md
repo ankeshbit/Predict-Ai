@@ -59,4 +59,20 @@ PRD v3.0 referenced generic default risk levels [0.20, 0.50] and fixed alert thr
 The production XGBoost model selected on Kaggle has a calibrated decision threshold of **0.10** (optimizing validation $F_2$ with minimum precision 0.50). 
 To align the UI and scoring semantics:
 1. **Risk Bands Default Alignment**: `RiskBandsConfig` defaults are set to `low_max = 0.10`, `medium_max = 0.50`, `high_max = 0.80`. Any prediction with $P_{\text{fail}} \ge 0.10$ (the decision threshold) is classified as at least "Medium" risk, eliminating the contradiction where a prediction at the decision threshold was previously labelled "Low".
-2. **Explicit Alert Rules**: The `high_failure_risk` alert threshold is dynamically queried from the active `alert_rules` table (`RULE_FAILURE_RISK_70`, threshold $0.70$) rather than being hardcoded in application logic or silently coupled to the decision threshold.
+2. **Explicit Alert Rules**: The `high_failure_risk` alert threshold is dynamically queried from the active `alert_rules` table (`RULE_HIGH_FAILURE_RISK`, default threshold $0.50$, consecutive $N=3$) rather than being hardcoded in application logic or silently coupled to the decision threshold.
+
+---
+
+## 5. Five Demo Machines Seeded from Held-out Engines
+
+### PRD v3.0 Specification (§8 / FR-18)
+PRD v3.0 referenced seeding eight demo machines.
+
+### Implemented Notebook-Driven Decision
+The production Kaggle training pipeline evaluated and exported exactly five held-out test engines in `demo_units.csv` (`[29, 48, 70, 77, 97]`) with reference trajectories in `demo_reference_scores.csv`. 
+Five demo machines are deterministically seeded:
+- **`ENGINE-077` (Warning Demo)**: Truncated at cycle 125, chosen for having the widest Warning window (20 cycles with $51 \le \text{HI} \le 70$, span 99–134).
+- **`ENGINE-048` (Critical Demo)**: Truncated at final cycle 231 ($\text{HI} = 0.75 \le 30$).
+- **`ENGINE-070` (Healthy Demo)**: Truncated at early cycle 35 ($\text{HI} = 99.95$, early Excellent cycle).
+- **`ENGINE-029`**: Complete held-out trajectory up to cycle 163.
+- **`ENGINE-097`**: Complete held-out trajectory up to cycle 202.

@@ -251,11 +251,23 @@ def score_machine_trajectory(
     high_fail_thresh = (
         float(rule_high_fail.failure_probability_threshold)
         if rule_high_fail and rule_high_fail.failure_probability_threshold is not None
-        else 0.70
+        else 0.50
     )
-    fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_FAILURE_RISK_70"
+    fail_consecutive_n = (
+        int(rule_high_fail.consecutive_cycles)
+        if rule_high_fail and rule_high_fail.consecutive_cycles is not None
+        else 3
+    )
+    fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_HIGH_FAILURE_RISK"
 
-    if latest_fail >= high_fail_thresh:
+    # Consecutive N check across latest cycles
+    recent_fail_probs = scored_df["failure_probability"].tail(fail_consecutive_n)
+    is_high_fail_triggered = (
+        len(recent_fail_probs) >= fail_consecutive_n
+        and (recent_fail_probs >= high_fail_thresh).all()
+    )
+
+    if is_high_fail_triggered:
         existing_alert = db.scalar(
             select(Alert).where(
                 Alert.machine_id == machine_id,

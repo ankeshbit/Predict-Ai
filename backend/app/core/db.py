@@ -27,7 +27,8 @@ connect_args = {
 }
 
 # Add sslmode if not local test DB
-if "localhost" not in settings.DATABASE_URL and "127.0.0.1" not in settings.DATABASE_URL:
+local_hosts = ("localhost", "127.0.0.1", "test-postgres", "postgres", "predict_ai_test_postgres")
+if not any(h in settings.DATABASE_URL for h in local_hosts):
     connect_args["sslmode"] = "require"
 
 engine = create_engine(
