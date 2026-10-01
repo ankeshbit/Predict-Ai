@@ -26,7 +26,10 @@ import { ModelPerformancePage } from './pages/ModelPerformancePage';
 import { ModelRegistryPage } from './pages/ModelRegistryPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+import { useResetDemo } from './api';
+
 export function App() {
+  const resetDemoMutation = useResetDemo();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState<User>({
     id: 'usr-eng-01',
@@ -71,12 +74,17 @@ export function App() {
     }));
   };
 
-  // PRD §FR-2 Reset Demo Data action
+  // PRD §FR-2 & FR-11 Reset Demo Data action
   const handleResetDemo = () => {
     setMachines(INITIAL_MACHINES);
     setAlerts(INITIAL_ALERTS);
     setMaintenanceRecords(INITIAL_MAINTENANCE_RECORDS);
     setDatasets(INITIAL_DATASETS);
+    resetDemoMutation.mutate(undefined, {
+      onError: (err) => {
+        console.warn('Backend demo reset skipped or unavailable:', err);
+      },
+    });
   };
 
   // Alert acknowledgment

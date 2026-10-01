@@ -23,8 +23,11 @@ from sqlalchemy.orm import Session
 from app.core.db import engine
 from app.ml.verify_artifacts import verify_manifest
 from app.models.entities import (
+    Alert,
+    Anomaly,
     HealthIndicatorConfig,
     Machine,
+    MaintenanceRecord,
     ModelEvaluation,
     ModelVersion,
     Prediction,
@@ -387,13 +390,12 @@ def seed_demo_engines(
                 machine.is_demo = True
                 machine.demo_cluster = category
 
-            # Delete old readings for this machine
-            db.execute(
-                SensorReading.__table__.delete().where(SensorReading.machine_id == machine.id)
-            )
-            db.execute(
-                Prediction.__table__.delete().where(Prediction.machine_id == machine.id)
-            )
+            # Delete old data for this machine (respecting FK dependency order)
+            db.execute(Alert.__table__.delete().where(Alert.machine_id == machine.id))
+            db.execute(MaintenanceRecord.__table__.delete().where(MaintenanceRecord.machine_id == machine.id))
+            db.execute(Anomaly.__table__.delete().where(Anomaly.machine_id == machine.id))
+            db.execute(Prediction.__table__.delete().where(Prediction.machine_id == machine.id))
+            db.execute(SensorReading.__table__.delete().where(SensorReading.machine_id == machine.id))
 
             # Insert truncated sensor readings up to cutoff
             readings_to_add = []

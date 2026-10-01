@@ -97,6 +97,26 @@ class StagingExpiredError(AppError):
         )
 
 
+class BadRequestError(AppError):
+    def __init__(self, code: str = "BAD_REQUEST", message: str = "Bad request", details: Optional[Any] = None):
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code=code,
+            message=message,
+            details=details,
+        )
+
+
+class InternalServerError(AppError):
+    def __init__(self, code: str = "INTERNAL_SERVER_ERROR", message: str = "Internal server error", details: Optional[Any] = None):
+        super().__init__(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code=code,
+            message=message,
+            details=details,
+        )
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
