@@ -1,0 +1,393 @@
+{
+  "model_version": "cmapss-fd001-h30-20261001T203719Z",
+  "method": "mean |TreeSHAP| on internal-test sample (log-odds)",
+  "scale": "mean |log-odds contribution| of the UNCALIBRATED model",
+  "n_features": 115,
+  "note": "sensor_k columns are anonymized; names such as sensor_k__slope_10 mean 'recent trend of anonymized sensor k'. No physical meaning is implied.",
+  "features": [
+    {
+      "feature": "sensor_15__roll_mean_10",
+      "importance": 1.334197998046875,
+      "importance_share": 0.13379833102226257,
+      "base_column": "sensor_15",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_3__roll_mean_10",
+      "importance": 0.768086850643158,
+      "importance_share": 0.0770266056060791,
+      "base_column": "sensor_3",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_2__roll_mean_10",
+      "importance": 0.390720933675766,
+      "importance_share": 0.03918294981122017,
+      "base_column": "sensor_2",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_4__slope_10",
+      "importance": 0.3196606934070587,
+      "importance_share": 0.032056763768196106,
+      "base_column": "sensor_4",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "cycle",
+      "importance": 0.28715088963508606,
+      "importance_share": 0.02879655919969082,
+      "base_column": "cycle",
+      "feature_group": "cycle"
+    },
+    {
+      "feature": "sensor_13__roll_mean_10",
+      "importance": 0.28182724118232727,
+      "importance_share": 0.028262684121727943,
+      "base_column": "sensor_13",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_12__roll_mean_5",
+      "importance": 0.2615359425544739,
+      "importance_share": 0.0262277964502573,
+      "base_column": "sensor_12",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_11__roll_mean_5",
+      "importance": 0.24333250522613525,
+      "importance_share": 0.02440228872001171,
+      "base_column": "sensor_11",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_14__roll_mean_10",
+      "importance": 0.2392457276582718,
+      "importance_share": 0.023992450907826424,
+      "base_column": "sensor_14",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_8__roll_mean_10",
+      "importance": 0.23476357758045197,
+      "importance_share": 0.023542964830994606,
+      "base_column": "sensor_8",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_11__slope_10",
+      "importance": 0.2222990095615387,
+      "importance_share": 0.02229297161102295,
+      "base_column": "sensor_11",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_12__slope_10",
+      "importance": 0.20513366162776947,
+      "importance_share": 0.020571567118167877,
+      "base_column": "sensor_12",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_20__roll_mean_5",
+      "importance": 0.20362575352191925,
+      "importance_share": 0.020420348271727562,
+      "base_column": "sensor_20",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_21__roll_mean_10",
+      "importance": 0.202789768576622,
+      "importance_share": 0.020336512476205826,
+      "base_column": "sensor_21",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_20__slope_10",
+      "importance": 0.19396531581878662,
+      "importance_share": 0.01945156417787075,
+      "base_column": "sensor_20",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_9__slope_10",
+      "importance": 0.18887490034103394,
+      "importance_share": 0.018941078335046768,
+      "base_column": "sensor_9",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_14__roll_mean_5",
+      "importance": 0.162107914686203,
+      "importance_share": 0.0162567850202322,
+      "base_column": "sensor_14",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_14__slope_10",
+      "importance": 0.1597205549478531,
+      "importance_share": 0.01601737178862095,
+      "base_column": "sensor_14",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_15__roll_mean_5",
+      "importance": 0.15546075999736786,
+      "importance_share": 0.015590183436870575,
+      "base_column": "sensor_15",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_3__roll_mean_5",
+      "importance": 0.15542693436145782,
+      "importance_share": 0.015586791560053825,
+      "base_column": "sensor_3",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_4__roll_mean_5",
+      "importance": 0.14865626394748688,
+      "importance_share": 0.014907803386449814,
+      "base_column": "sensor_4",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_7__roll_std_10",
+      "importance": 0.14499160647392273,
+      "importance_share": 0.014540297910571098,
+      "base_column": "sensor_7",
+      "feature_group": "roll_std"
+    },
+    {
+      "feature": "sensor_11__roll_mean_10",
+      "importance": 0.13812413811683655,
+      "importance_share": 0.01385160256177187,
+      "base_column": "sensor_11",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_2__roll_mean_5",
+      "importance": 0.13724669814109802,
+      "importance_share": 0.01376360934227705,
+      "base_column": "sensor_2",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_8__slope_10",
+      "importance": 0.13630951941013336,
+      "importance_share": 0.013669625855982304,
+      "base_column": "sensor_8",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_9__roll_mean_10",
+      "importance": 0.1300337165594101,
+      "importance_share": 0.013040265068411827,
+      "base_column": "sensor_9",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_20__roll_std_5",
+      "importance": 0.12120994925498962,
+      "importance_share": 0.012155384756624699,
+      "base_column": "sensor_20",
+      "feature_group": "roll_std"
+    },
+    {
+      "feature": "sensor_2",
+      "importance": 0.10918485373258591,
+      "importance_share": 0.010949463583528996,
+      "base_column": "sensor_2",
+      "feature_group": "raw_sensor"
+    },
+    {
+      "feature": "sensor_13__slope_10",
+      "importance": 0.10892261564731598,
+      "importance_share": 0.010923164896667004,
+      "base_column": "sensor_13",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_21__roll_mean_5",
+      "importance": 0.10694500803947449,
+      "importance_share": 0.010724843479692936,
+      "base_column": "sensor_21",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_13__roll_mean_5",
+      "importance": 0.10385646671056747,
+      "importance_share": 0.010415112599730492,
+      "base_column": "sensor_13",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_12",
+      "importance": 0.1023140475153923,
+      "importance_share": 0.010260432958602905,
+      "base_column": "sensor_12",
+      "feature_group": "raw_sensor"
+    },
+    {
+      "feature": "sensor_9__roll_mean_5",
+      "importance": 0.10011941194534302,
+      "importance_share": 0.010040347464382648,
+      "base_column": "sensor_9",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_21__roll_std_10",
+      "importance": 0.09905264526605606,
+      "importance_share": 0.009933367371559143,
+      "base_column": "sensor_21",
+      "feature_group": "roll_std"
+    },
+    {
+      "feature": "sensor_17__slope_10",
+      "importance": 0.09639392048120499,
+      "importance_share": 0.009666740894317627,
+      "base_column": "sensor_17",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_15",
+      "importance": 0.09245656430721283,
+      "importance_share": 0.009271888062357903,
+      "base_column": "sensor_15",
+      "feature_group": "raw_sensor"
+    },
+    {
+      "feature": "sensor_7__slope_10",
+      "importance": 0.09222280234098434,
+      "importance_share": 0.009248445741832256,
+      "base_column": "sensor_7",
+      "feature_group": "slope"
+    },
+    {
+      "feature": "sensor_7__roll_mean_5",
+      "importance": 0.09045159071683884,
+      "importance_share": 0.009070822037756443,
+      "base_column": "sensor_7",
+      "feature_group": "roll_mean"
+    },
+    {
+      "feature": "sensor_11",
+      "importance": 0.08278745412826538,
+      "importance_share": 0.0083022341132164,
+      "base_column": "sensor_11",
+      "feature_group": "raw_sensor"
+    },
+    {
+      "feature": "sensor_13__roll_std_10",
+      "importance": 0.0823158398270607,
+      "importance_share": 0.008254938758909702,
+      "base_column": "sensor_13",
+      "feature_group": "roll_std"
+    }
+  ],
+  "by_base_column": [
+    {
+      "base_column": "sensor_15",
+      "importance": 1.7272720336914062
+    },
+    {
+      "base_column": "sensor_3",
+      "importance": 1.0983471870422363
+    },
+    {
+      "base_column": "sensor_11",
+      "importance": 0.7660515904426575
+    },
+    {
+      "base_column": "sensor_2",
+      "importance": 0.7332252860069275
+    },
+    {
+      "base_column": "sensor_14",
+      "importance": 0.6630067229270935
+    },
+    {
+      "base_column": "sensor_12",
+      "importance": 0.6499108076095581
+    },
+    {
+      "base_column": "sensor_4",
+      "importance": 0.6190758943557739
+    },
+    {
+      "base_column": "sensor_13",
+      "importance": 0.5988590717315674
+    },
+    {
+      "base_column": "sensor_21",
+      "importance": 0.5644962787628174
+    },
+    {
+      "base_column": "sensor_9",
+      "importance": 0.5635406970977783
+    },
+    {
+      "base_column": "sensor_20",
+      "importance": 0.5493152737617493
+    },
+    {
+      "base_column": "sensor_8",
+      "importance": 0.5086584091186523
+    },
+    {
+      "base_column": "sensor_7",
+      "importance": 0.3854784369468689
+    },
+    {
+      "base_column": "cycle",
+      "importance": 0.28715088963508606
+    },
+    {
+      "base_column": "sensor_17",
+      "importance": 0.24494674801826477
+    },
+    {
+      "base_column": "operating_setting_1",
+      "importance": 0.009344068355858326
+    },
+    {
+      "base_column": "operating_setting_2",
+      "importance": 0.003029666841030121
+    }
+  ],
+  "by_feature_group": [
+    {
+      "feature_group": "roll_mean",
+      "importance": 5.788862705230713
+    },
+    {
+      "feature_group": "slope",
+      "importance": 1.9048823118209839
+    },
+    {
+      "feature_group": "roll_std",
+      "importance": 1.1633387804031372
+    },
+    {
+      "feature_group": "raw_sensor",
+      "importance": 0.6654787063598633
+    },
+    {
+      "feature_group": "cycle",
+      "importance": 0.28715088963508606
+    },
+    {
+      "feature_group": "diff1",
+      "importance": 0.08217635005712509
+    },
+    {
+      "feature_group": "pct_change1",
+      "importance": 0.06744537502527237
+    },
+    {
+      "feature_group": "operating_setting",
+      "importance": 0.012373735196888447
+    }
+  ]
+}

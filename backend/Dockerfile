@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for FastAPI Backend
-FROM python:3.10-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -15,14 +15,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/backend/requirements-inference.txt && \
     pip install --no-cache-dir -e /app/backend
 
-FROM python:3.10-slim AS runner
+FROM python:3.12-slim AS runner
 
 WORKDIR /app
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY backend/ /app/backend/

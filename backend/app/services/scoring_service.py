@@ -28,6 +28,7 @@ from app.ml.pdm_inference import ModelBundle, score_trajectory
 from app.ml.pdm_recommendation import recommend_maintenance
 from app.models.entities import (
     Alert,
+    AlertRule,
     Anomaly,
     Dataset,
     HealthIndicatorConfig,
@@ -36,6 +37,7 @@ from app.models.entities import (
     ModelVersion,
     Prediction,
     SensorReading,
+    Setting,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,6 +132,12 @@ def score_machine_trajectory(
     db.execute(Prediction.__table__.delete().where(Prediction.machine_id == machine_id))
     db.execute(Anomaly.__table__.delete().where(Anomaly.machine_id == machine_id))
 
+    # Query risk band settings (PRD §14.8 default low_max=0.10 aligned with decision_threshold)
+    risk_setting = db.scalar(select(Setting).where(Setting.key == "risk_bands"))
+    low_max = float(risk_setting.value.get("low_max", 0.10)) if risk_setting and risk_setting.value else 0.10
+    medium_max = float(risk_setting.value.get("medium_max", 0.50)) if risk_setting and risk_setting.value else 0.50
+    high_max = float(risk_setting.value.get("high_max", 0.80)) if risk_setting and risk_setting.value else 0.80
+
     new_predictions: List[Prediction] = []
     new_anomalies: List[Anomaly] = []
 
@@ -147,7 +155,12 @@ def score_machine_trajectory(
         dq_penalty = bd["data_quality_points"] if bd else 0.0
         clip_adj = bd["clipping_adjustment_points"] if bd else 0.0
 
-        risk_level = "High" if p_fail >= 0.50 else ("Medium" if p_fail >= 0.20 else "Low")
+        # Aligned with decision threshold: >= low_max (0.10) is at least Medium
+        risk_level = (
+            "Critical" if p_fail >= high_max
+            else ("High" if p_fail >= medium_max
+            else ("Medium" if p_fail >= low_max else "Low"))
+        )
         health_band = (
             "Excellent" if hi_val >= 86.0
             else ("Healthy" if hi_val >= 71.0
@@ -228,8 +241,21 @@ def score_machine_trajectory(
         decision_threshold=active_model.decision_threshold or 0.50,
     )
 
-    # If critical risk or severe anomaly, create alerts
-    if latest_fail >= 0.70:
+    # Explicit alert rule evaluation from database records (PRD §14.8)
+    rule_high_fail = db.scalar(
+        select(AlertRule).where(
+            AlertRule.alert_type == "high_failure_risk",
+            AlertRule.is_active.is_(True),
+        )
+    )
+    high_fail_thresh = (
+        float(rule_high_fail.failure_probability_threshold)
+        if rule_high_fail and rule_high_fail.failure_probability_threshold is not None
+        else 0.70
+    )
+    fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_FAILURE_RISK_70"
+
+    if latest_fail >= high_fail_thresh:
         existing_alert = db.scalar(
             select(Alert).where(
                 Alert.machine_id == machine_id,
@@ -247,10 +273,17 @@ def score_machine_trajectory(
                 trigger_cycle=int(latest_row["cycle"]),
                 trigger_score=latest_fail,
                 recommendation_text=rec["category"] + ": " + "; ".join(rec["reasons"]),
-                recommendation_rule_id="RULE_FAILURE_RISK_70",
+                recommendation_rule_id=fail_rule_id,
             )
             db.add(alert)
 
+    rule_anom = db.scalar(
+        select(AlertRule).where(
+            AlertRule.alert_type == "severe_anomaly",
+            AlertRule.is_active.is_(True),
+        )
+    )
+    anom_rule_id = rule_anom.rule_id if rule_anom else "RULE_ANOMALY_80"
     if latest_anom >= 0.80:
         existing_alert = db.scalar(
             select(Alert).where(
@@ -269,7 +302,7 @@ def score_machine_trajectory(
                 trigger_cycle=int(latest_row["cycle"]),
                 trigger_score=latest_anom,
                 recommendation_text=rec["category"] + ": " + "; ".join(rec["reasons"]),
-                recommendation_rule_id="RULE_ANOMALY_80",
+                recommendation_rule_id=anom_rule_id,
             )
             db.add(alert)
 

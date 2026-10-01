@@ -47,3 +47,16 @@ To provide rigorous transparency without conflating validation sets, the Kaggle 
 2. **Official C-MAPSS Test Benchmark (`test_FD001`)**: The standard 100-engine NASA benchmark test set scored against ground-truth remaining useful life (RUL) vectors.
 
 Both sets store downsampled ROC, PR, and calibration curves ($\le 50$ points), confusion matrices, and metrics. Both are explicitly labelled and togglable on the Model Performance page.
+
+---
+
+## 4. Risk Bands Aligned with Decision Threshold & Explicit Alert Rule Thresholds
+
+### PRD v3.0 Specification (§7 / FR-12, FR-14)
+PRD v3.0 referenced generic default risk levels [0.20, 0.50] and fixed alert thresholds.
+
+### Implemented Notebook-Driven Decision
+The production XGBoost model selected on Kaggle has a calibrated decision threshold of **0.10** (optimizing validation $F_2$ with minimum precision 0.50). 
+To align the UI and scoring semantics:
+1. **Risk Bands Default Alignment**: `RiskBandsConfig` defaults are set to `low_max = 0.10`, `medium_max = 0.50`, `high_max = 0.80`. Any prediction with $P_{\text{fail}} \ge 0.10$ (the decision threshold) is classified as at least "Medium" risk, eliminating the contradiction where a prediction at the decision threshold was previously labelled "Low".
+2. **Explicit Alert Rules**: The `high_failure_risk` alert threshold is dynamically queried from the active `alert_rules` table (`RULE_FAILURE_RISK_70`, threshold $0.70$) rather than being hardcoded in application logic or silently coupled to the decision threshold.

@@ -1,0 +1,17 @@
+{
+  "selection": "fixed-seed random choice among internal-test units (not chosen using model outputs)",
+  "seed": 2024,
+  "unit_ids": [
+    29,
+    48,
+    70,
+    77,
+    97
+  ],
+  "source_split": "internal_test",
+  "n_rows": 887,
+  "format": "demo_units.csv = raw FD001 columns (unit_id, cycle, operating_setting_1..3, sensor_1..21)",
+  "reference_scores": "demo_reference_scores.csv = outputs of score_trajectory for parity testing",
+  "model_version": "cmapss-fd001-h30-20261001T203719Z",
+  "note": "Rows come from the C-MAPSS-format training file; the data is simulated and sensors are anonymized."
+}

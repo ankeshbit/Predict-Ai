@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class RiskBandsConfig(BaseModel):
-    low_max: float = 0.20
+    low_max: float = 0.10  # Aligned with decision_threshold (0.10): at/above threshold is at least Medium
     medium_max: float = 0.50
     high_max: float = 0.80
 

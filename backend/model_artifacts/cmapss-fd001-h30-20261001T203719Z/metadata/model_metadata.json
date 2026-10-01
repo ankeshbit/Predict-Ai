@@ -1,0 +1,714 @@
+{
+  "model_version": "cmapss-fd001-h30-20261001T203719Z",
+  "dataset": "NASA C-MAPSS FD001",
+  "dataset_info": {
+    "description": "Simulated turbofan-engine run-to-failure benchmark (NASA C-MAPSS). Sensor columns are ANONYMIZED; no physical meaning is assigned.",
+    "is_simulated": true,
+    "sensor_naming": "anonymized sensor_1..sensor_21",
+    "train_file_units": 100,
+    "train_file_rows": 20631,
+    "official_test_units": 100,
+    "official_test_rows": 13096,
+    "units_train_split": 60,
+    "units_validation_split": 20,
+    "units_internal_test_split": 20,
+    "split_unit_ids": {
+      "train": [
+        2,
+        3,
+        4,
+        7,
+        8,
+        9,
+        14,
+        15,
+        18,
+        20,
+        21,
+        22,
+        24,
+        25,
+        26,
+        28,
+        30,
+        33,
+        35,
+        37,
+        38,
+        39,
+        42,
+        44,
+        47,
+        49,
+        50,
+        51,
+        52,
+        53,
+        55,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        68,
+        69,
+        72,
+        75,
+        76,
+        79,
+        80,
+        82,
+        83,
+        85,
+        87,
+        88,
+        90,
+        92,
+        93,
+        95,
+        96,
+        98,
+        99,
+        100
+      ],
+      "validation": [
+        6,
+        10,
+        12,
+        13,
+        19,
+        27,
+        31,
+        36,
+        40,
+        43,
+        46,
+        54,
+        56,
+        67,
+        71,
+        73,
+        81,
+        86,
+        89,
+        91
+      ],
+      "internal_test": [
+        1,
+        5,
+        11,
+        16,
+        17,
+        23,
+        29,
+        32,
+        34,
+        41,
+        45,
+        48,
+        66,
+        70,
+        74,
+        77,
+        78,
+        84,
+        94,
+        97
+      ]
+    },
+    "split_policy": "by unit_id (no machine appears in more than one split)"
+  },
+  "target": "failure_within_H_cycles",
+  "target_definition": "1 if remaining useful life (cycles) <= failure_horizon else 0",
+  "failure_horizon": 30,
+  "failure_horizon_unit": "operating_cycles",
+  "anomaly_model": "IsolationForest",
+  "failure_model": "xgboost",
+  "failure_model_class": "XGBClassifier",
+  "calibration_method": "sigmoid",
+  "class_weighting_used": false,
+  "train_positive_rate": 0.15158924205378974,
+  "features": [
+    "cycle",
+    "operating_setting_1",
+    "operating_setting_2",
+    "sensor_2",
+    "sensor_2__roll_mean_5",
+    "sensor_2__roll_mean_10",
+    "sensor_2__roll_std_5",
+    "sensor_2__roll_std_10",
+    "sensor_2__diff1",
+    "sensor_2__pct_change1",
+    "sensor_2__slope_10",
+    "sensor_3",
+    "sensor_3__roll_mean_5",
+    "sensor_3__roll_mean_10",
+    "sensor_3__roll_std_5",
+    "sensor_3__roll_std_10",
+    "sensor_3__diff1",
+    "sensor_3__pct_change1",
+    "sensor_3__slope_10",
+    "sensor_4",
+    "sensor_4__roll_mean_5",
+    "sensor_4__roll_mean_10",
+    "sensor_4__roll_std_5",
+    "sensor_4__roll_std_10",
+    "sensor_4__diff1",
+    "sensor_4__pct_change1",
+    "sensor_4__slope_10",
+    "sensor_7",
+    "sensor_7__roll_mean_5",
+    "sensor_7__roll_mean_10",
+    "sensor_7__roll_std_5",
+    "sensor_7__roll_std_10",
+    "sensor_7__diff1",
+    "sensor_7__pct_change1",
+    "sensor_7__slope_10",
+    "sensor_8",
+    "sensor_8__roll_mean_5",
+    "sensor_8__roll_mean_10",
+    "sensor_8__roll_std_5",
+    "sensor_8__roll_std_10",
+    "sensor_8__diff1",
+    "sensor_8__pct_change1",
+    "sensor_8__slope_10",
+    "sensor_9",
+    "sensor_9__roll_mean_5",
+    "sensor_9__roll_mean_10",
+    "sensor_9__roll_std_5",
+    "sensor_9__roll_std_10",
+    "sensor_9__diff1",
+    "sensor_9__pct_change1",
+    "sensor_9__slope_10",
+    "sensor_11",
+    "sensor_11__roll_mean_5",
+    "sensor_11__roll_mean_10",
+    "sensor_11__roll_std_5",
+    "sensor_11__roll_std_10",
+    "sensor_11__diff1",
+    "sensor_11__pct_change1",
+    "sensor_11__slope_10",
+    "sensor_12",
+    "sensor_12__roll_mean_5",
+    "sensor_12__roll_mean_10",
+    "sensor_12__roll_std_5",
+    "sensor_12__roll_std_10",
+    "sensor_12__diff1",
+    "sensor_12__pct_change1",
+    "sensor_12__slope_10",
+    "sensor_13",
+    "sensor_13__roll_mean_5",
+    "sensor_13__roll_mean_10",
+    "sensor_13__roll_std_5",
+    "sensor_13__roll_std_10",
+    "sensor_13__diff1",
+    "sensor_13__pct_change1",
+    "sensor_13__slope_10",
+    "sensor_14",
+    "sensor_14__roll_mean_5",
+    "sensor_14__roll_mean_10",
+    "sensor_14__roll_std_5",
+    "sensor_14__roll_std_10",
+    "sensor_14__diff1",
+    "sensor_14__pct_change1",
+    "sensor_14__slope_10",
+    "sensor_15",
+    "sensor_15__roll_mean_5",
+    "sensor_15__roll_mean_10",
+    "sensor_15__roll_std_5",
+    "sensor_15__roll_std_10",
+    "sensor_15__diff1",
+    "sensor_15__pct_change1",
+    "sensor_15__slope_10",
+    "sensor_17",
+    "sensor_17__roll_mean_5",
+    "sensor_17__roll_mean_10",
+    "sensor_17__roll_std_5",
+    "sensor_17__roll_std_10",
+    "sensor_17__diff1",
+    "sensor_17__pct_change1",
+    "sensor_17__slope_10",
+    "sensor_20",
+    "sensor_20__roll_mean_5",
+    "sensor_20__roll_mean_10",
+    "sensor_20__roll_std_5",
+    "sensor_20__roll_std_10",
+    "sensor_20__diff1",
+    "sensor_20__pct_change1",
+    "sensor_20__slope_10",
+    "sensor_21",
+    "sensor_21__roll_mean_5",
+    "sensor_21__roll_mean_10",
+    "sensor_21__roll_std_5",
+    "sensor_21__roll_std_10",
+    "sensor_21__diff1",
+    "sensor_21__pct_change1",
+    "sensor_21__slope_10"
+  ],
+  "feature_config": {
+    "active_sensors": [
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_17",
+      "sensor_20",
+      "sensor_21"
+    ],
+    "active_operating_settings": [
+      "operating_setting_1",
+      "operating_setting_2"
+    ],
+    "dropped_sensors_low_variance": [
+      "sensor_1",
+      "sensor_5",
+      "sensor_6",
+      "sensor_10",
+      "sensor_16",
+      "sensor_18",
+      "sensor_19"
+    ],
+    "dropped_operating_settings": [
+      "operating_setting_3"
+    ],
+    "rolling_windows": [
+      5,
+      10
+    ],
+    "slope_window": 10,
+    "pct_change_eps": 1e-06,
+    "pct_change_clip": 1.0,
+    "imputer": "median (fitted on training units)",
+    "anomaly_features": [
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_17",
+      "sensor_20",
+      "sensor_21",
+      "sensor_2__roll_mean_10",
+      "sensor_3__roll_mean_10",
+      "sensor_4__roll_mean_10",
+      "sensor_7__roll_mean_10",
+      "sensor_8__roll_mean_10",
+      "sensor_9__roll_mean_10",
+      "sensor_11__roll_mean_10",
+      "sensor_12__roll_mean_10",
+      "sensor_13__roll_mean_10",
+      "sensor_14__roll_mean_10",
+      "sensor_15__roll_mean_10",
+      "sensor_17__roll_mean_10",
+      "sensor_20__roll_mean_10",
+      "sensor_21__roll_mean_10"
+    ],
+    "max_lookback_rows": 11
+  },
+  "schema": {
+    "required_input_columns": [
+      "cycle",
+      "operating_setting_1",
+      "operating_setting_2",
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_17",
+      "sensor_20",
+      "sensor_21"
+    ],
+    "optional_input_columns": [
+      "unit_id"
+    ],
+    "full_dataset_schema": [
+      "unit_id",
+      "cycle",
+      "operating_setting_1",
+      "operating_setting_2",
+      "operating_setting_3",
+      "sensor_1",
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_5",
+      "sensor_6",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_10",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_16",
+      "sensor_17",
+      "sensor_18",
+      "sensor_19",
+      "sensor_20",
+      "sensor_21"
+    ],
+    "one_row_per_operating_cycle": true,
+    "note": "Send the machine's chronological history (at least max_lookback rows recommended)."
+  },
+  "threshold": {
+    "value": 0.1,
+    "objective": "fbeta",
+    "beta": 2.0,
+    "min_precision": 0.5,
+    "rule": "max F2 on validation",
+    "selected_on": "validation units, out-of-fold calibrated probabilities"
+  },
+  "anomaly": {
+    "contamination": 0.02,
+    "healthy_min_rul": 100,
+    "alarm_threshold_calibrated_on": "healthy rows of validation units (not seen by the forest)",
+    "flag_rates_healthy_rows": {
+      "target_rate": 0.02,
+      "n_validation_healthy_rows": 2236,
+      "isolation_forest": {
+        "train_healthy_in_sample": 0.020095693779904306,
+        "validation_healthy_before_recalibration": 0.055008944543828264,
+        "validation_healthy_after_recalibration": 0.020125223613595707,
+        "internal_test_healthy_rows": 0.02776470588235294
+      }
+    },
+    "score_semantics": "raw = -score_samples (higher = more anomalous); anomaly_score = percentile vs healthy training raw scores; not a probability"
+  },
+  "health_indicator": {
+    "name": "Machine Health Indicator",
+    "trained_model": false,
+    "formula": "clip(100*(1-P_fail)*(1-anomaly_weight*anomaly_severity) - data_quality_penalty, 0, 100)",
+    "additive_decomposition": {
+      "failure_risk_points": "100*P_fail",
+      "anomaly_points": "100*(1-P_fail)*anomaly_weight*anomaly_severity",
+      "data_quality_points": "data_quality_penalty",
+      "trend_points": "not enabled"
+    },
+    "config": {
+      "anomaly_weight": 0.3,
+      "data_quality_penalty": {
+        "DATA_OK": 0.0,
+        "DATA_WARNING": 10.0
+      }
+    }
+  },
+  "recommendation_rules": {
+    "label": "AI recommendation - not a confirmed diagnosis",
+    "config": {
+      "urgent_probability": 0.8,
+      "urgent_health_max": 25.0,
+      "schedule_health_max": 50.0,
+      "inspect_health_max": 75.0,
+      "inspect_probability_fraction_of_threshold": 0.5,
+      "label": "AI recommendation - not a confirmed diagnosis",
+      "disclaimer": "This is an AI-generated recommendation derived from model outputs by transparent rules. It is not a confirmed diagnosis or a maintenance instruction; a qualified person should make the final decision."
+    }
+  },
+  "quality": {
+    "required_columns": [
+      "cycle",
+      "operating_setting_1",
+      "operating_setting_2",
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_17",
+      "sensor_20",
+      "sensor_21"
+    ],
+    "schema_columns": [
+      "unit_id",
+      "cycle",
+      "operating_setting_1",
+      "operating_setting_2",
+      "operating_setting_3",
+      "sensor_1",
+      "sensor_2",
+      "sensor_3",
+      "sensor_4",
+      "sensor_5",
+      "sensor_6",
+      "sensor_7",
+      "sensor_8",
+      "sensor_9",
+      "sensor_10",
+      "sensor_11",
+      "sensor_12",
+      "sensor_13",
+      "sensor_14",
+      "sensor_15",
+      "sensor_16",
+      "sensor_17",
+      "sensor_18",
+      "sensor_19",
+      "sensor_20",
+      "sensor_21"
+    ],
+    "feature_ranges": {
+      "operating_setting_1": {
+        "min": -0.0087,
+        "max": 0.0087
+      },
+      "operating_setting_2": {
+        "min": -0.0006,
+        "max": 0.0006
+      },
+      "sensor_2": {
+        "min": 641.21,
+        "max": 644.53
+      },
+      "sensor_3": {
+        "min": 1571.06,
+        "max": 1616.91
+      },
+      "sensor_4": {
+        "min": 1385.19,
+        "max": 1441.49
+      },
+      "sensor_7": {
+        "min": 549.85,
+        "max": 555.86
+      },
+      "sensor_8": {
+        "min": 2387.9,
+        "max": 2388.56
+      },
+      "sensor_9": {
+        "min": 9023.85,
+        "max": 9244.59
+      },
+      "sensor_11": {
+        "min": 46.85,
+        "max": 48.52
+      },
+      "sensor_12": {
+        "min": 518.69,
+        "max": 523.38
+      },
+      "sensor_13": {
+        "min": 2387.88,
+        "max": 2388.56
+      },
+      "sensor_14": {
+        "min": 8099.94,
+        "max": 8293.72
+      },
+      "sensor_15": {
+        "min": 8.3358,
+        "max": 8.5848
+      },
+      "sensor_17": {
+        "min": 388.0,
+        "max": 399.0
+      },
+      "sensor_20": {
+        "min": 38.14,
+        "max": 39.41
+      },
+      "sensor_21": {
+        "min": 22.8942,
+        "max": 23.6184
+      }
+    },
+    "min_history_warn": 10,
+    "quality_config": {
+      "range_margin_fraction": 0.5,
+      "extreme_invalid_fraction": 0.25,
+      "max_missing_fraction_latest": 0.2,
+      "min_history_invalid": 2
+    }
+  },
+  "failure_horizon_status": "configured_not_optimized",
+  "failure_horizon_rationale": "H is a configured planning lead time (in operating cycles) chosen before modelling as a business parameter. It was NOT optimised on validation or test performance, and no sensitivity study over other H values was run. Re-run the notebook with another FAILURE_HORIZON_H to compare.",
+  "reliability_mapping": {
+    "DATA_OK": "reliable",
+    "DATA_WARNING": "reliability_reduced",
+    "DATA_INVALID": "not_scored"
+  },
+  "training_timestamp": "2026-10-01T20:37:19+00:00",
+  "random_state": 42,
+  "library_versions": {
+    "python": "3.12.13",
+    "numpy": "2.0.2",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.6.1",
+    "scipy": "1.16.3",
+    "joblib": "1.5.3",
+    "xgboost": "3.2.0",
+    "shap": "0.51.0"
+  },
+  "metrics": {
+    "validation_oof_calibrated": {
+      "accuracy": 0.9296506137865911,
+      "precision": 0.6850574712643678,
+      "recall": 0.9612903225806452,
+      "f1": 0.8,
+      "roc_auc": 0.9885285826434485,
+      "pr_auc": 0.9446030256186042,
+      "brier": 0.02871484057141499,
+      "ece": 0.009376165884153048,
+      "threshold": 0.1
+    },
+    "internal_test": {
+      "accuracy": 0.9304242424242424,
+      "precision": 0.6920415224913494,
+      "recall": 0.967741935483871,
+      "f1": 0.8069939475453934,
+      "roc_auc": 0.9914016842299022,
+      "pr_auc": 0.9619900675706872,
+      "brier": 0.02450889948379944,
+      "ece": 0.007230769713461935,
+      "threshold": 0.1
+    },
+    "official_test_all_rows": {
+      "accuracy": 0.9812919975565058,
+      "precision": 0.5908141962421712,
+      "recall": 0.8524096385542169,
+      "f1": 0.6979038224414303,
+      "roc_auc": 0.9925262787282001,
+      "pr_auc": 0.8156541176780989,
+      "brier": 0.010220637486173417,
+      "ece": 0.004995094962721616,
+      "threshold": 0.1
+    },
+    "official_test_last_cycle_per_unit": {
+      "accuracy": 0.93,
+      "precision": 0.8,
+      "recall": 0.96,
+      "f1": 0.8727272727272727,
+      "roc_auc": 0.9845333333333333,
+      "pr_auc": 0.9549650008018834,
+      "brier": 0.05852398859007412,
+      "ece": 0.06776720040123634,
+      "threshold": 0.1
+    },
+    "anomaly_detection_proxy": {
+      "IsolationForest": {
+        "proxy_roc_auc": 0.9997047438330171,
+        "flag_rate_healthy_rows": 0.02776470588235294,
+        "flag_rate_near_failure_rows": 1.0
+      },
+      "z-score baseline (RMS)": {
+        "proxy_roc_auc": 0.9998732447817836,
+        "flag_rate_healthy_rows": 0.021176470588235293,
+        "flag_rate_near_failure_rows": 1.0
+      }
+    },
+    "candidate_models_validation_raw": {
+      "reference_cycle_only": {
+        "roc_auc": 0.8890009456180417,
+        "pr_auc": 0.5513818094540746,
+        "brier": 0.0893980961471088,
+        "ece": 0.03600127091609304
+      },
+      "logistic_regression": {
+        "roc_auc": 0.9890977376534399,
+        "pr_auc": 0.94614159920497,
+        "brier": 0.03142562172279756,
+        "ece": 0.02444222676239069
+      },
+      "hist_gradient_boosting": {
+        "roc_auc": 0.9900661040536682,
+        "pr_auc": 0.9524677022904404,
+        "brier": 0.0331576603409647,
+        "ece": 0.025706450318555858
+      },
+      "xgboost": {
+        "roc_auc": 0.9895009634598916,
+        "pr_auc": 0.950332584078718,
+        "brier": 0.03276973192047975,
+        "ece": 0.023771146269043787
+      }
+    },
+    "calibration_comparison_validation_oof": {
+      "none": {
+        "brier": 0.03276973192047975,
+        "ece": 0.023771148451478735,
+        "roc_auc": 0.9895009634598916,
+        "pr_auc": 0.950332584078718
+      },
+      "sigmoid": {
+        "brier": 0.02871484057141499,
+        "ece": 0.009376165884153048,
+        "roc_auc": 0.9885285826434485,
+        "pr_auc": 0.9446030256186042
+      },
+      "isotonic": {
+        "brier": 0.02881082050513715,
+        "ece": 0.010706057247676246,
+        "roc_auc": 0.9858143912360833,
+        "pr_auc": 0.9305901278416467
+      }
+    },
+    "calibration_before_after": {
+      "validation raw (in-sample)": {
+        "brier": 0.03276973192047975,
+        "ece": 0.023771146269043787,
+        "roc_auc": 0.9895009634598916,
+        "pr_auc": 0.950332584078718
+      },
+      "validation sigmoid (out-of-fold)": {
+        "brier": 0.02871484057141499,
+        "ece": 0.009376165884153048,
+        "roc_auc": 0.9885285826434485,
+        "pr_auc": 0.9446030256186042
+      },
+      "internal test raw": {
+        "brier": 0.02889017613750828,
+        "ece": 0.020990883075434598,
+        "roc_auc": 0.9914016842299022,
+        "pr_auc": 0.9619900675706872
+      },
+      "internal test sigmoid": {
+        "brier": 0.02450889948379944,
+        "ece": 0.007230769713461935,
+        "roc_auc": 0.9914016842299022,
+        "pr_auc": 0.9619900675706872
+      }
+    },
+    "anomaly_flag_rates_healthy_rows": {
+      "target_rate": 0.02,
+      "n_validation_healthy_rows": 2236,
+      "isolation_forest": {
+        "train_healthy_in_sample": 0.020095693779904306,
+        "validation_healthy_before_recalibration": 0.055008944543828264,
+        "validation_healthy_after_recalibration": 0.020125223613595707,
+        "internal_test_healthy_rows": 0.02776470588235294
+      }
+    }
+  }
+}

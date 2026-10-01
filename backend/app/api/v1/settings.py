@@ -90,7 +90,7 @@ def get_risk_bands(
     setting = db.scalar(select(Setting).where(Setting.key == "risk_bands"))
     if setting and setting.value:
         return RiskBandsConfig(**setting.value)
-    return RiskBandsConfig(low_max=0.20, medium_max=0.50, high_max=0.80)
+    return RiskBandsConfig(low_max=0.10, medium_max=0.50, high_max=0.80)
 
 
 @settings_router.put("/risk-bands", response_model=RiskBandsConfig)

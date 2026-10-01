@@ -1,0 +1,82 @@
+{
+  "early-life row": {
+    "unit_id": 1,
+    "cycle": 16,
+    "rul_true": 176,
+    "failure_probability": 0.0005712232253744026,
+    "method": "TreeSHAP (xgboost pred_contribs)",
+    "space": "log-odds of uncalibrated model",
+    "top_features": [
+      {
+        "feature": "sensor_15__roll_mean_10",
+        "value": 8.40593,
+        "contribution": -1.610007882118225,
+        "direction": "decreases_failure_risk"
+      },
+      {
+        "feature": "sensor_3__roll_mean_10",
+        "value": 1586.9599999999998,
+        "contribution": -1.0153827667236328,
+        "direction": "decreases_failure_risk"
+      },
+      {
+        "feature": "sensor_2__roll_mean_10",
+        "value": 642.319,
+        "contribution": -0.5414466261863708,
+        "direction": "decreases_failure_risk"
+      },
+      {
+        "feature": "sensor_8__roll_mean_10",
+        "value": 2388.063,
+        "contribution": -0.3544195592403412,
+        "direction": "decreases_failure_risk"
+      },
+      {
+        "feature": "sensor_13__roll_mean_10",
+        "value": 2388.043,
+        "contribution": -0.3319961428642273,
+        "direction": "decreases_failure_risk"
+      }
+    ]
+  },
+  "highest-risk row": {
+    "unit_id": 1,
+    "cycle": 188,
+    "rul_true": 4,
+    "failure_probability": 0.9940586649257533,
+    "method": "TreeSHAP (xgboost pred_contribs)",
+    "space": "log-odds of uncalibrated model",
+    "top_features": [
+      {
+        "feature": "sensor_15__roll_mean_10",
+        "value": 8.503720000000001,
+        "contribution": 1.9176037311553955,
+        "direction": "increases_failure_risk"
+      },
+      {
+        "feature": "sensor_11__roll_mean_10",
+        "value": 48.05499999999999,
+        "contribution": 0.7205833196640015,
+        "direction": "increases_failure_risk"
+      },
+      {
+        "feature": "sensor_2__roll_mean_10",
+        "value": 643.578,
+        "contribution": 0.611312210559845,
+        "direction": "increases_failure_risk"
+      },
+      {
+        "feature": "sensor_11__roll_mean_5",
+        "value": 48.114,
+        "contribution": 0.5735662579536438,
+        "direction": "increases_failure_risk"
+      },
+      {
+        "feature": "sensor_3__roll_mean_10",
+        "value": 1598.699,
+        "contribution": 0.5432614684104919,
+        "direction": "increases_failure_risk"
+      }
+    ]
+  }
+}

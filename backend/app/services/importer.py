@@ -143,9 +143,19 @@ def register_model_bundle(
             mv.model_card_complete = True
             mv.artifact_path = str(root)
             mv.sha256_hash = bundle_hash
-            mv.python_version = metadata.get("library_versions", {}).get("python", "3.10.0")
+            py_ver = (
+                model_card.get("library_versions", {}).get("python")
+                or metadata.get("library_versions", {}).get("python")
+                or "3.12.13"
+            )
+            mv.python_version = py_ver
             mv.is_active = activate
         else:
+            py_ver = (
+                model_card.get("library_versions", {}).get("python")
+                or metadata.get("library_versions", {}).get("python")
+                or "3.12.13"
+            )
             mv = ModelVersion(
                 id=uuid.uuid4(),
                 bundle_version=model_version_str,
@@ -162,7 +172,7 @@ def register_model_bundle(
                 model_card_complete=True,
                 artifact_path=str(root),
                 sha256_hash=bundle_hash,
-                python_version=metadata.get("library_versions", {}).get("python", "3.10.0"),
+                python_version=py_ver,
             )
             db.add(mv)
             db.flush()
