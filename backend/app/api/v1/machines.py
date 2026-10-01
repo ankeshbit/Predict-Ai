@@ -13,14 +13,20 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
-from app.models.entities import Machine, SensorReading, User
+from app.models.entities import Machine, Prediction, SensorReading, User
 from app.schemas.machines import (
     MachineListResponse,
     MachineResponse,
-    MachineStatusUpdateRequest,
     SensorCycleReading,
     SensorHistoryResponse,
 )
+from app.schemas.predictions import (
+    AdditiveBreakdownResponse,
+    PredictionLineageResponse,
+    PredictionListResponse,
+    PredictionResponse,
+)
+from app.services.scoring_service import score_machine_trajectory
 
 router = APIRouter(prefix="/machines", tags=["Machines"])
 
@@ -70,23 +76,6 @@ def get_machine(
     return MachineResponse.model_validate(machine)
 
 
-@router.patch("/{machine_id}/status", response_model=MachineResponse)
-@router.patch("/{machine_id}", response_model=MachineResponse)
-def update_machine_status(
-    machine_id: uuid.UUID,
-    payload: MachineStatusUpdateRequest,
-    current_user: User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-):
-    """Updates operational status of a machine (Admin only)."""
-    machine = db.get(Machine, machine_id)
-    if not machine:
-        raise NotFoundError(message=f"Machine with id {machine_id} not found")
-
-    machine.operational_status = payload.operational_status
-    db.commit()
-    db.refresh(machine)
-    return MachineResponse.model_validate(machine)
 
 
 @router.get("/{machine_id}/sensors", response_model=SensorHistoryResponse)
@@ -153,3 +142,85 @@ def get_sensor_history(
         returned_cycles=len(results),
         readings=results,
     )
+
+
+@router.get("/{machine_id}/predictions", response_model=PredictionListResponse)
+def get_machine_predictions(
+    machine_id: uuid.UUID,
+    limit: int = Query(50, ge=1, le=500),
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Retrieves recent scored predictions and additive health breakdown points for a machine."""
+    machine = db.get(Machine, machine_id)
+    if not machine:
+        raise NotFoundError(message=f"Machine {machine_id} not found")
+
+    preds = db.scalars(
+        select(Prediction)
+        .where(Prediction.machine_id == machine_id)
+        .order_by(Prediction.cycle.desc())
+        .limit(limit)
+    ).all()
+
+    items = []
+    for p in preds:
+        lineage = PredictionLineageResponse(
+            dataset_version=p.dataset_version,
+            schema_mapping_hash=p.schema_mapping_hash,
+            feature_config_version=p.feature_config_version,
+            preprocessing_version=p.preprocessing_version,
+            failure_model_version_id=p.failure_model_version_id,
+            anomaly_model_version_id=p.anomaly_model_version_id,
+            health_config_id=p.health_config_id,
+            horizon=p.horizon,
+            horizon_unit=p.horizon_unit,
+            as_of_index=p.as_of_index,
+            predicted_at=p.predicted_at,
+            input_window_start=p.input_window_start,
+            input_window_end=p.input_window_end,
+        )
+        breakdown = AdditiveBreakdownResponse(
+            start=100.0,
+            failure_risk_points=p.penalty_risk,
+            anomaly_points=p.penalty_anomaly,
+            data_quality_points=p.penalty_dq,
+            trend_points=None,
+            trend_status="not_enabled",
+            clipping_adjustment_points=p.clipping_adjustment,
+            health_indicator=p.health_indicator,
+        )
+        items.append(
+            PredictionResponse(
+                id=p.id,
+                machine_id=p.machine_id,
+                cycle=p.cycle,
+                as_of_index=p.as_of_index,
+                predicted_at=p.predicted_at,
+                failure_probability=p.failure_probability,
+                risk_level=p.risk_level,
+                health_indicator=p.health_indicator,
+                health_band=p.health_band,
+                penalty_risk=p.penalty_risk,
+                penalty_anomaly=p.penalty_anomaly,
+                penalty_dq=p.penalty_dq,
+                penalty_trend=p.penalty_trend,
+                clipping_adjustment=p.clipping_adjustment,
+                breakdown=breakdown,
+                lineage=lineage,
+                reliability_flags=p.reliability_flags,
+            )
+        )
+
+    return PredictionListResponse(items=items, total=len(items))
+
+
+@router.post("/{machine_id}/score")
+def score_machine(
+    machine_id: uuid.UUID,
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Scores sensor readings for a machine using the registered active model bundle."""
+    return score_machine_trajectory(machine_id, db)
+

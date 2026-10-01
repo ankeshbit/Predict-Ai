@@ -13,10 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.v1.alerts import router as alerts_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.datasets import router as datasets_router
+from app.api.v1.health_config import router as health_config_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.machines import router as machines_router
+from app.api.v1.maintenance import router as maintenance_router
+from app.api.v1.models import router as models_router
 from app.core.config import settings
 from app.core.db import engine
 from app.core.errors import (
@@ -116,6 +120,10 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(machines_router, prefix="/api/v1")
 app.include_router(datasets_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")
+app.include_router(alerts_router, prefix="/api/v1")
+app.include_router(maintenance_router, prefix="/api/v1")
+app.include_router(models_router, prefix="/api/v1")
+app.include_router(health_config_router, prefix="/api/v1")
 
 
 @app.get("/health", response_model=HealthStatus, tags=["System"])

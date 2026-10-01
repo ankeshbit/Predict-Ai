@@ -54,6 +54,10 @@ jobs:
         run: |
           python scripts/check_guardrails.py
 
+      - name: Guardrail - Model Bundle Dependency Pin Parity Check
+        run: |
+          python scripts/check_bundle_pins.py
+
   backend-tests:
     runs-on: ubuntu-latest
     services:

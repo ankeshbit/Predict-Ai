@@ -322,10 +322,9 @@ def seed_demo_engines(
         if not active_health_cfg:
             active_health_cfg = HealthIndicatorConfig(
                 version="v1.0",
-                weight_risk=50.0,
-                weight_anomaly=30.0,
-                weight_trend=20.0,
-                trend_window=20,
+                anomaly_weight=0.30,
+                data_quality_penalty={"DATA_OK": 0.0, "DATA_WARNING": 10.0},
+                trend_enabled=False,
                 is_active=True,
             )
             db.add(active_health_cfg)
@@ -363,8 +362,8 @@ def seed_demo_engines(
             else:
                 score_data = ref_slice.iloc[-1].to_dict()
 
-            # Operational status mapping
-            op_status = "active" if category == "healthy" else ("warning" if category == "warning" else "critical")
+            # Operational status is strictly 'active' (maintenance/archived are operational states)
+            op_status = "active"
             health_band = "Healthy" if category == "healthy" else ("Warning" if category == "warning" else "Critical")
 
             # Check or create Machine
@@ -455,7 +454,9 @@ def seed_demo_engines(
                 health_band=health_band,
                 penalty_risk=round(100.0 * fail_prob, 2),
                 penalty_anomaly=round(100.0 * (1.0 - fail_prob) * 0.30 * anom_score, 2),
+                penalty_dq=0.0,
                 penalty_trend=0.0,
+                clipping_adjustment=0.0,
                 input_window_start=max(1, cutoff - 30),
                 input_window_end=cutoff,
                 reliability_flags={"data_quality": score_data.get("data_quality_status", "DATA_OK")},

@@ -20,21 +20,32 @@ from app.models.entities import (
 )
 
 
-def test_health_indicator_config_weight_sum_constraint(db):
-    # Weights sum to 90 (not 100) -> must fail CheckConstraint
+def test_health_indicator_config_anomaly_weight_constraint(db):
+    # anomaly_weight > 1.0 -> must fail CheckConstraint
     invalid_config = HealthIndicatorConfig(
         id=uuid.uuid4(),
         version="2.0-invalid",
-        weight_risk=50.0,
-        weight_anomaly=20.0,
-        weight_trend=20.0,  # 50 + 20 + 20 = 90 != 100
-        trend_window=20,
+        anomaly_weight=1.5,
+        data_quality_penalty={"DATA_OK": 0.0, "DATA_WARNING": 10.0},
+        trend_enabled=False,
         is_active=False,
     )
     db.add(invalid_config)
     with pytest.raises(IntegrityError):
         db.commit()
     db.rollback()
+
+    # Valid config passes
+    valid_config = HealthIndicatorConfig(
+        id=uuid.uuid4(),
+        version="2.0-valid",
+        anomaly_weight=0.30,
+        data_quality_penalty={"DATA_OK": 0.0, "DATA_WARNING": 10.0},
+        trend_enabled=False,
+        is_active=False,
+    )
+    db.add(valid_config)
+    db.commit()
 
 
 def test_user_role_check_constraint(db):
@@ -52,11 +63,12 @@ def test_user_role_check_constraint(db):
 
 
 def test_machine_operational_status_constraint(db):
-    # Operational status not in allowed list
+    # Operational status must strictly be 'active', 'maintenance', or 'archived'
+    # 'warning', 'critical', 'exploded', 'offline' must fail CheckConstraint
     invalid_machine = Machine(
         id=uuid.uuid4(),
         machine_code="invalid-status-machine",
-        operational_status="exploded",
+        operational_status="critical",  # Health band is critical, operational status is active/maintenance/archived
     )
     db.add(invalid_machine)
     with pytest.raises(IntegrityError):
@@ -257,3 +269,74 @@ def test_unique_machine_dataset_cycle_constraint(db):
     with pytest.raises(IntegrityError):
         db.commit()
     db.rollback()
+
+
+def test_dropped_machine_cycle_unique_allows_different_datasets(db):
+    """Verifies that dropping uq_machine_cycle allows the same machine cycle across different datasets."""
+    ds1 = Dataset(id=uuid.uuid4(), name="DS 1", slug="ds-1-unique-test")
+    ds2 = Dataset(id=uuid.uuid4(), name="DS 2", slug="ds-2-unique-test")
+    machine = Machine(id=uuid.uuid4(), machine_code="shared-cycle-unit")
+    db.add_all([ds1, ds2, machine])
+    db.commit()
+
+    # Same machine, same cycle (1), but DIFFERENT datasets -> must succeed!
+    r1 = SensorReading(machine_id=machine.id, dataset_id=ds1.id, cycle_index=1)
+    r2 = SensorReading(machine_id=machine.id, dataset_id=ds2.id, cycle_index=1)
+    db.add_all([r1, r2])
+    db.commit()
+    assert r1.id != r2.id
+
+
+def test_prediction_breakdown_points_storage(db):
+    """Verifies predictions store additive breakdown points (penalty_risk, penalty_anomaly, penalty_dq, penalty_trend)."""
+    from app.models.entities import Prediction
+    m = Machine(id=uuid.uuid4(), machine_code="pred-storage-unit")
+    mv = ModelVersion(
+        id=uuid.uuid4(),
+        bundle_version="1.0.0",
+        task="failure_risk",
+        model_type="XGBoostClassifier",
+        feature_config_version="1.0",
+        preprocessing_version="1.0",
+        input_features=["sensor_2"],
+        artifact_path="/dummy",
+        sha256_hash="dummyhash",
+        python_version="3.10",
+    )
+    cfg = db.query(HealthIndicatorConfig).first()
+    db.add_all([m, mv])
+    db.commit()
+
+    pred = Prediction(
+        id=uuid.uuid4(),
+        machine_id=m.id,
+        cycle=50,
+        as_of_index=50,
+        dataset_version="v1",
+        schema_mapping_hash="hash1",
+        feature_config_version="1.0",
+        preprocessing_version="1.0",
+        failure_model_version_id=mv.id,
+        health_config_id=cfg.id,
+        horizon=30,
+        failure_probability=0.45,
+        risk_level="Medium",
+        health_indicator=55.0,
+        health_band="Warning",
+        penalty_risk=45.0,
+        penalty_anomaly=10.0,
+        penalty_dq=0.0,
+        penalty_trend=0.0,
+        clipping_adjustment=0.0,
+        input_window_start=20,
+        input_window_end=50,
+        reliability_flags={"status": "ok"},
+    )
+    db.add(pred)
+    db.commit()
+
+    fetched = db.get(Prediction, pred.id)
+    assert fetched.penalty_risk == 45.0
+    assert fetched.penalty_anomaly == 10.0
+    assert fetched.penalty_dq == 0.0
+    assert fetched.penalty_trend == 0.0

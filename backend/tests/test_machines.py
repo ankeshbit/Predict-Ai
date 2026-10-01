@@ -14,23 +14,23 @@ def test_list_machines_and_filtering(client, engineer_headers, db):
         id=uuid.uuid4(),
         machine_code="eng-v1-u01",
         operational_status="active",
-        health_band="healthy",
+        health_band="Healthy",
         health_indicator=82.5,
         is_demo=True,
     )
     m2 = Machine(
         id=uuid.uuid4(),
         machine_code="eng-v1-u02",
-        operational_status="critical",
-        health_band="critical",
+        operational_status="maintenance",
+        health_band="Critical",
         health_indicator=24.0,
         is_demo=True,
     )
     m3 = Machine(
         id=uuid.uuid4(),
         machine_code="prod-v1-u01",
-        operational_status="active",
-        health_band="excellent",
+        operational_status="archived",
+        health_band="Excellent",
         health_indicator=95.0,
         is_demo=False,
     )
@@ -45,11 +45,11 @@ def test_list_machines_and_filtering(client, engineer_headers, db):
     assert len(data["items"]) == 3
 
     # Filter by operational_status
-    res_crit = client.get("/api/v1/machines?operational_status=critical", headers=engineer_headers)
-    assert res_crit.status_code == 200
-    data_crit = res_crit.json()
-    assert data_crit["total"] == 1
-    assert data_crit["items"][0]["machine_code"] == "eng-v1-u02"
+    res_maint = client.get("/api/v1/machines?operational_status=maintenance", headers=engineer_headers)
+    assert res_maint.status_code == 200
+    data_maint = res_maint.json()
+    assert data_maint["total"] == 1
+    assert data_maint["items"][0]["machine_code"] == "eng-v1-u02"
 
     # Filter by is_demo
     res_demo = client.get("/api/v1/machines?is_demo=true", headers=engineer_headers)

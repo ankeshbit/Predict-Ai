@@ -220,20 +220,14 @@ def check_dataset_compatibility(
     # Delete previous compatibility checks for this dataset
     db.query(DatasetCompatibilityCheck).filter_by(dataset_id=dataset.id).delete()
 
-    # Save check results in database
-    for c in report.checks:
-        chk_entity = DatasetCompatibilityCheck(
-            id=uuid.uuid4(),
-            dataset_id=dataset.id,
-            check_number=c.check_number,
-            check_name=c.check_name,
-            status=c.status,
-            expected_value=c.expected_value,
-            found_value=c.found_value,
-            how_to_fix=c.how_to_fix,
-            details=c.details,
-        )
-        db.add(chk_entity)
+    # Save check result as one row with complete report JSONB (PRD §13)
+    chk_entity = DatasetCompatibilityCheck(
+        id=uuid.uuid4(),
+        dataset_id=dataset.id,
+        status="passed" if report.passed else "failed",
+        report=report.to_dict(),
+    )
+    db.add(chk_entity)
 
     if not report.passed:
         dataset.status = "rejected_incompatible"

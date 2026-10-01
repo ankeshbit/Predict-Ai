@@ -97,20 +97,20 @@ class Dataset(Base):
     compatibility_checks = relationship("DatasetCompatibilityCheck", back_populates="dataset", cascade="all, delete-orphan")
 
 
-# 3. Dataset Compatibility Checks (one row per individual check, per dataset)
+# 3. Dataset Compatibility Checks (one row per check run with JSONB report)
 class DatasetCompatibilityCheck(Base):
     __tablename__ = "dataset_compatibility_checks"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
-    dataset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
-    check_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    check_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
+    model_version_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("model_versions.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)  # 'passed' | 'failed' | 'warning'
-    expected_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    found_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    how_to_fix: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    details: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    report: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('passed', 'failed', 'warning')", name="check_compatibility_status"),
+    )
 
     dataset = relationship("Dataset", back_populates="compatibility_checks")
 
@@ -131,7 +131,7 @@ class Machine(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
     __table_args__ = (
-        CheckConstraint("operational_status IN ('active', 'warning', 'critical', 'maintenance', 'degraded', 'offline')", name="check_machine_status"),
+        CheckConstraint("operational_status IN ('active', 'maintenance', 'archived')", name="check_machine_status"),
     )
 
     readings = relationship("SensorReading", back_populates="machine", cascade="all, delete-orphan")
@@ -191,7 +191,6 @@ class SensorReading(Base):
 
     __table_args__ = (
         Index("uq_machine_dataset_cycle", "machine_id", "dataset_id", "cycle_index", unique=True),
-        Index("uq_machine_cycle", "machine_id", "cycle_index", unique=True),
     )
 
 
@@ -251,15 +250,16 @@ class HealthIndicatorConfig(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
     version: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    weight_risk: Mapped[float] = mapped_column(Float, default=50.0, nullable=False)
-    weight_anomaly: Mapped[float] = mapped_column(Float, default=30.0, nullable=False)
-    weight_trend: Mapped[float] = mapped_column(Float, default=20.0, nullable=False)
-    trend_window: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    anomaly_weight: Mapped[float] = mapped_column(Float, default=0.30, nullable=False)
+    data_quality_penalty: Mapped[Dict[str, float]] = mapped_column(
+        JSONB, default=lambda: {"DATA_OK": 0.0, "DATA_WARNING": 10.0}, nullable=False
+    )
+    trend_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     __table_args__ = (
-        CheckConstraint("(weight_risk + weight_anomaly + weight_trend) = 100.0", name="check_health_weights_sum_100"),
+        CheckConstraint("anomaly_weight >= 0.0 AND anomaly_weight <= 1.0", name="check_anomaly_weight_range"),
         Index("uq_active_health_config", "is_active", unique=True, postgresql_where=(is_active == True)),  # noqa: E712
     )
 
@@ -292,7 +292,9 @@ class Prediction(Base):
     health_band: Mapped[str] = mapped_column(String(32), nullable=False)
     penalty_risk: Mapped[float] = mapped_column(Float, nullable=False)
     penalty_anomaly: Mapped[float] = mapped_column(Float, nullable=False)
-    penalty_trend: Mapped[float] = mapped_column(Float, nullable=False)
+    penalty_dq: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    penalty_trend: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    clipping_adjustment: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     input_window_start: Mapped[int] = mapped_column(Integer, nullable=False)
     input_window_end: Mapped[int] = mapped_column(Integer, nullable=False)
     reliability_flags: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=False)
@@ -351,16 +353,30 @@ class MaintenanceRecord(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=gen_uuid)
     machine_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False, index=True)
     alert_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("alerts.id"), nullable=True)
-    action_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    action_status: Mapped[str] = mapped_column(String(32), default="in_progress", nullable=False)
+    issue: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    recommended_action: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    decision: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    decision_rationale: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    action_taken: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    action_type: Mapped[str] = mapped_column(String(64), default="inspection", nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="in_progress", nullable=False)
     outcome: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    engineer_notes: Mapped[str] = mapped_column(Text, nullable=False)
+    engineer_notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     performed_by_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    @hybrid_property
+    def action_status(self) -> str:
+        return self.status
+
+    @action_status.setter
+    def action_status(self, val: str) -> None:
+        self.status = val
+
     __table_args__ = (
-        CheckConstraint("action_status IN ('in_progress', 'completed')", name="check_maintenance_status"),
+        CheckConstraint("status IN ('recommended', 'in_progress', 'completed', 'cancelled')", name="check_maintenance_status"),
+        CheckConstraint("decision IS NULL OR decision IN ('followed_recommendation', 'modified', 'declined')", name="check_maintenance_decision"),
         CheckConstraint("outcome IS NULL OR outcome IN ('resolved', 'no_issue_found', 'unresolved')", name="check_maintenance_outcome"),
     )
 
