@@ -27,12 +27,33 @@ from app.core.errors import (
 from app.core.logging import setup_logging
 from app.schemas.common import HealthStatus
 
+from pathlib import Path
+from app.ml.verify_artifacts import ArtifactVerificationError, verify_all
+
 setup_logging(settings.LOG_LEVEL)
+
+
+def verify_active_model_artifacts():
+    """Verifies registered model artifacts at startup.
+    Refuses to start on any manifest tampering or library version mismatch.
+    """
+    artifacts_base = Path(settings.MODEL_ARTIFACTS_DIR)
+    if not artifacts_base.is_absolute():
+        artifacts_base = Path(__file__).resolve().parent.parent / settings.MODEL_ARTIFACTS_DIR
+
+    if artifacts_base.is_dir():
+        candidate_bundles = [
+            d for d in artifacts_base.iterdir()
+            if d.is_dir() and (d / "metadata" / "artifact_manifest.json").is_file()
+        ]
+        for bundle in candidate_bundles:
+            verify_all(bundle, strict_versions=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup tasks
+    # Startup tasks: run manifest + library-version verification
+    verify_active_model_artifacts()
     yield
     # Shutdown tasks
     engine.dispose()

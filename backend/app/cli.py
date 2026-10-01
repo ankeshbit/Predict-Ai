@@ -114,6 +114,32 @@ def seed_defaults():
     print("[+] Default seed completed.")
 
 
+def register_model_cmd(bundle_path: str, activate: bool):
+    """Registers a model bundle into model_versions and model_evaluations."""
+    from app.services.importer import register_model_bundle
+    print(f"[*] Registering model bundle from: {bundle_path}")
+    try:
+        mv = register_model_bundle(bundle_path, activate=activate)
+        print(f"[+] Successfully registered model: {mv.bundle_version} (ID: {mv.id}, Active: {mv.is_active})")
+    except Exception as e:
+        print(f"[-] Registration failed: {e}")
+        sys.exit(1)
+
+
+def seed_demo_cmd(bundle_path: str):
+    """Seeds demo machines (Healthy, Warning, Critical) from demo bundle data."""
+    from app.services.importer import seed_demo_engines
+    print(f"[*] Seeding demo fleet from: {bundle_path}")
+    try:
+        res = seed_demo_engines(bundle_path)
+        print("[+] Demo fleet seeded successfully:")
+        for category, info in res.items():
+            print(f"    - {category.upper()}: {info['machine_code']} (Cutoff: {info['cutoff_cycle']}, Readings: {info['readings_count']}, Health: {info['health_indicator']})")
+    except Exception as e:
+        print(f"[-] Demo seeding failed: {e}")
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Predict-Ai Administrative CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -130,6 +156,15 @@ def main():
     # seed-defaults
     subparsers.add_parser("seed-defaults", help="Seed default health config and test accounts")
 
+    # register-model
+    reg_parser = subparsers.add_parser("register-model", help="Register a validated model bundle")
+    reg_parser.add_argument("--bundle-path", required=True, help="Path to model bundle directory")
+    reg_parser.add_argument("--activate", action="store_true", default=True, help="Set model as active")
+
+    # seed-demo
+    demo_parser = subparsers.add_parser("seed-demo", help="Seed demo fleet from bundle")
+    demo_parser.add_argument("--bundle-path", required=True, help="Path to model bundle directory containing demo/ folder")
+
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -138,7 +173,12 @@ def main():
         migrate_check()
     elif args.command == "seed-defaults":
         seed_defaults()
+    elif args.command == "register-model":
+        register_model_cmd(args.bundle_path, args.activate)
+    elif args.command == "seed-demo":
+        seed_demo_cmd(args.bundle_path)
 
 
 if __name__ == "__main__":
     main()
+

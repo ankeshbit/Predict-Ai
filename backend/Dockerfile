@@ -7,12 +7,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ml/ ml/
-COPY backend/ backend/
+COPY backend/requirements-inference.txt /app/backend/
+COPY backend/pyproject.toml /app/backend/
+COPY backend/ /app/backend/
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e ./ml && \
-    pip install --no-cache-dir -e ./backend
+    pip install --no-cache-dir -r /app/backend/requirements-inference.txt && \
+    pip install --no-cache-dir -e /app/backend
 
 FROM python:3.10-slim AS runner
 
@@ -25,7 +26,6 @@ COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY backend/ /app/backend/
-COPY ml/ /app/ml/
 
 WORKDIR /app/backend
 

@@ -60,14 +60,18 @@ The system supports exactly two roles:
 ---
 
 ## 5. Machine Health Indicator Formulation (FR-10)
-The Machine Health Indicator is a deterministic composite index on a 0–100 scale:
-$$\text{Health Indicator} = 100 - (W_{\text{risk}} \cdot s_{\text{risk}} + W_{\text{anom}} \cdot s_{\text{anom}} + W_{\text{trend}} \cdot s_{\text{trend}})$$
+The Machine Health Indicator is a deterministic composite index on a 0–100 scale (not a trained ML model and not an ISO physical measurement):
+$$\text{HI} = \operatorname{clip}\Big(100 \times (1 - P_{\text{fail}}) \times (1 - w_a \cdot s_{\text{anom}}) - \text{penalty}_{\text{DQ}}, \, 0, \, 100\Big)$$
+
+### Additive Health Breakdown (Deviation from v3.0 linear weighted sum)
+Before clipping, the formula decomposes additively for clear UI explainability:
+$$\text{HI} = 100 - \Delta_{\text{risk}} - \Delta_{\text{anom}} - \Delta_{\text{DQ}}$$
 
 Where:
-- $W_{\text{risk}} = 50\%$: Penalty from calibrated failure probability at horizon $H=30$.
-- $W_{\text{anom}} = 30\%$: Penalty from rolling unsupervised anomaly severity.
-- $W_{\text{trend}} = 20\%$: Penalty from monotonic sensor degradation slope over the trailing 20 cycles.
-- Constraint: $W_{\text{risk}} + W_{\text{anom}} + W_{\text{trend}} \equiv 100\%$. Any configuration where the sum differs from 100 is rejected with a validation error.
+- $\Delta_{\text{risk}} = 100 \cdot P_{\text{fail}}$: Dominant penalty from calibrated failure probability at configured horizon $H=30$ ($HI \to 0$ as $P_{\text{fail}} \to 1$).
+- $\Delta_{\text{anom}} = 100 \cdot (1 - P_{\text{fail}}) \cdot w_a \cdot s_{\text{anom}}$: Secondary penalty from unsupervised anomaly severity ($s_{\text{anom}} \in [0, 1]$). $w_a = \text{anomaly\_weight}$ represents the maximum health share anomaly alone can remove (default $0.30$), ensuring anomaly alone cannot drive health to zero.
+- $\Delta_{\text{DQ}}$: Data quality deduction ($10.0$ for `DATA_WARNING`, $0.0$ for `DATA_OK`). If `DATA_INVALID`, no health indicator is computed (`None`).
+- Sensor trend term: Monotonic degradation slope penalty is marked as **"not enabled"** in this release.
 
 ### Health Bands:
 - **Excellent**: $86 - 100$
@@ -98,14 +102,18 @@ If any check fails, the dataset is marked `rejected_incompatible`, scoring retur
 
 ## 7. Model Governance & Performance Contract (FR-16, FR-17)
 - **Zero Fabricated Metrics**: No metrics may be hardcoded or invented in frontend, backend, or seed scripts. If no evaluation record exists, the UI explicitly states: `"Model evaluation not available."`
+- **Configured Horizon $H$ (Deviation)**: The failure prediction horizon $H = 30$ cycles is an operational/business configuration parameter, not an ML-optimized threshold. No hyperparameter sensitivity optimization over $H$ was executed; model cards must explicitly declare this limitation.
+- **Two Distinct Evaluation Sets Labelled on the Page (Deviation)**: Rather than reporting a single evaluation dataset, the Model Performance page and evaluation schemas explicitly store and label two evaluation sets:
+  1. **Internal Test Set**: Held-out engine trajectories from the C-MAPSS training set (unseen during model training and threshold tuning).
+  2. **Official C-MAPSS Test Set (`test_FD001`)**: The standard NASA benchmark test set scored against ground-truth remaining useful life (RUL) vectors.
 - **Stored Evaluation Schema**: All metrics derive from `model_evaluations`:
   - **PR-AUC (Primary Metric)**: Precision-Recall Area Under Curve (mandatory for class-imbalanced run-to-failure data).
   - **ROC-AUC**: Receiver Operating Characteristic AUC.
-  - **Precision & Recall** at threshold $\tau = 0.50$.
+  - **Precision & Recall** at configured/selected threshold.
   - **F1 Score** (harmonic mean).
-  - **Brier Score**: Quadratic calibration error (target $\le 0.10$ with Platt scaling).
+  - **Brier Score**: Quadratic calibration error (with Platt scaling / isotonic calibration).
   - **Confusion Matrix**: True Positive, False Positive, False Negative, True Negative counts.
-  - **Downsampled Curves**: 50-point downsampled ROC, PR, and Calibration curves.
+  - **Downsampled Curves**: 50-point downsampled ROC, PR, and Calibration curves for each evaluation set.
 - **Model Card Integrity**: A model cannot be activated in production without a complete model card detailing target definition, input features, training split, calibration method, intended use, and stated operational limitations.
 
 ---
