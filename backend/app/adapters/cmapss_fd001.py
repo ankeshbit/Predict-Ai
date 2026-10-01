@@ -5,6 +5,7 @@ Canonical column schema: unit_id, cycle, op_setting_1..3, sensor_1..21
 
 import re
 from typing import Dict, List, Tuple
+
 import pandas as pd
 
 from app.adapters.base import BaseAdapter

@@ -4,8 +4,8 @@ Unit and integration tests for dataset ingestion background service and job poll
 
 import uuid as uuid_lib
 from pathlib import Path
-import pytest
-from app.models.entities import Dataset, Job, Machine, SensorReading
+
+from app.models.entities import Machine, SensorReading
 from app.services.ingestion import run_ingestion_job
 
 FIXTURES_DIR = (Path(__file__).resolve().parent.parent.parent / "database" / "sample_data").resolve()

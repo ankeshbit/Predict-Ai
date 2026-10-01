@@ -3,11 +3,12 @@ Comprehensive integration tests for PRD FR-6 Dataset Compatibility Gate
 Tests all 11 verification checks against compatible and incompatible datasets.
 """
 
-from pathlib import Path
 import uuid as uuid_lib
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-import pytest
+
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.models.entities import Dataset
 from app.services.compatibility import run_fr6_compatibility_checks

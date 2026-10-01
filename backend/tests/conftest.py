@@ -10,13 +10,12 @@ import uuid
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
-from alembic.config import Config
-
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import create_access_token, get_password_hash

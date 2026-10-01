@@ -48,12 +48,18 @@ This guide instructs the human operator on how to run the offline training and e
    - **Cell 9**: Download `bundle_v1.0.0.zip` or save to `My Drive/predict-ai/artifacts/`.
 
 ### 4. Transferring the Bundle to the Backend
-1. Extract or copy the exported `bundle_v1.0.0` folder into the backend model artifacts directory:
+1. Extract `artifacts_bundle.zip` into `backend/model_artifacts/<model_version>/` (e.g. `backend/model_artifacts/cmapss-fd001-h30-20261001T.../`).
+2. Copy the bundle's own `requirements-inference.txt` directly to `backend/requirements-inference.txt` (never guess package versions):
    ```bash
-   cp -r bundle_v1.0.0/ backend/model_artifacts/bundle_v1.0.0/
+   cp backend/model_artifacts/<model_version>/requirements-inference.txt backend/requirements-inference.txt
    ```
-2. Verify that `backend/model_artifacts/bundle_v1.0.0/failure_risk/manifest.json` exists.
-3. Register the bundle via CLI:
+3. Register the model bundle and seed the demo fleet inside the backend Docker container (which matches the bundle's Python runtime) or a virtualenv with identical pins:
    ```bash
-   python -m app.cli register-model backend/model_artifacts/bundle_v1.0.0
+   # Register model (verifies manifest hashes; zero unpickling; no version check at import time)
+   docker compose run --rm backend python -m app.cli register-model --bundle-path model_artifacts/<model_version>
+
+   # Seed demo fleet (re-runs score_trajectory in backend, asserts parity with demo_reference_scores.csv, uses distinct engines)
+   docker compose run --rm backend python -m app.cli seed-demo --bundle-path model_artifacts/<model_version>
    ```
+4. Start the application. At startup, FastAPI lifespan runs `verify_all()` with strict Python (major.minor) and library version checking, refusing to start if any runtime dependency differs from `metadata.library_versions`.
+

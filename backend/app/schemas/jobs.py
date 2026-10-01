@@ -2,9 +2,10 @@
 Pydantic schemas for asynchronous Jobs
 """
 
+import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
-import uuid
+
 from pydantic import BaseModel, ConfigDict
 
 

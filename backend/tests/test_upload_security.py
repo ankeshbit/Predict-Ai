@@ -4,8 +4,9 @@ Unit and integration tests for upload security, content sniffing, and CSV saniti
 
 import io
 import time
-from unittest.mock import patch
+
 import pytest
+
 from app.core.errors import AppError, StagingExpiredError
 from app.services.upload import (
     STAGING_DIR,

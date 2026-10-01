@@ -4,17 +4,15 @@ Enforces strict file security, content-sniffing, CSV injection protection,
 and staging expiration per PRD FR-5 and §16.
 """
 
-from datetime import datetime, timezone
 import hashlib
 import os
-from pathlib import Path
-import re
-from typing import Any, BinaryIO, Dict, Optional, Tuple
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
 from fastapi import UploadFile
 
-from app.core.config import settings
 from app.core.errors import AppError, StagingExpiredError
 
 # Upload limits

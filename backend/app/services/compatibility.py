@@ -5,11 +5,11 @@ Implements all 11 PRD FR-6 verification checks prior to data ingestion or scorin
 
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
-
 
 # Expected constant channels in C-MAPSS FD001 (near zero variance)
 FD001_CONSTANT_CHANNELS = [

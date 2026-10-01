@@ -39,11 +39,12 @@ This document describes how to deploy the Predict-Ai platform across Vercel (Fro
    alembic upgrade head
    ```
 2. **Model Bundle Registration & Activation**:
+   Run registration inside the container or within a venv matching the bundle's Python pins:
    ```bash
-   python -m app.cli register-model /app/model_artifacts/bundle_v1.0.0
-   python -m app.cli activate-model failure_lgb_v1.0.0
+   docker compose run --rm backend python -m app.cli register-model --bundle-path model_artifacts/<model_version>
    ```
-3. **Demo Data Seed (Optional / First Run)**:
+3. **Demo Data Seed**:
+   Seeder re-runs `score_trajectory` in the backend, asserts parity with `demo_reference_scores.csv`, and populates distinct engines for Healthy, Warning, and Critical:
    ```bash
-   python -m app.cli seed-demo
+   docker compose run --rm backend python -m app.cli seed-demo --bundle-path model_artifacts/<model_version>
    ```

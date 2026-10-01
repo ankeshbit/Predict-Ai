@@ -3,7 +3,7 @@ Unit tests for Model Importer, Bundle Verifier, and Demo Fleet Seeder
 """
 
 import json
-from pathlib import Path
+
 import pytest
 
 from app.ml.verify_artifacts import (
@@ -12,7 +12,7 @@ from app.ml.verify_artifacts import (
     verify_all,
     verify_manifest,
 )
-from app.models.entities import Machine, ModelEvaluation, ModelVersion, Prediction, SensorReading
+from app.models.entities import Machine
 from app.services.importer import register_model_bundle, seed_demo_engines
 
 
@@ -168,7 +168,7 @@ def test_verifier_refuses_on_library_version_mismatch():
 
 def test_register_model_bundle_importer(mock_valid_bundle, db):
     """Importer must correctly populate model_versions and model_evaluations tables."""
-    mv = register_model_bundle(mock_valid_bundle, activate=True, strict_versions=False, session=db)
+    mv = register_model_bundle(mock_valid_bundle, activate=True, session=db)
     assert mv is not None
     assert mv.bundle_version == "cmapss-fd001-h30-test"
     assert mv.is_active is True
@@ -187,7 +187,7 @@ def test_register_model_bundle_importer(mock_valid_bundle, db):
 def test_seed_demo_engines_creates_all_three_categories(mock_valid_bundle, db):
     """Seeder must populate Healthy, Warning, and Critical demo machines."""
     # First register and activate model
-    register_model_bundle(mock_valid_bundle, activate=True, strict_versions=False, session=db)
+    register_model_bundle(mock_valid_bundle, activate=True, session=db)
 
     results = seed_demo_engines(mock_valid_bundle, session=db)
     assert "healthy" in results

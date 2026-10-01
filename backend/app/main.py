@@ -5,6 +5,7 @@ FastAPI Main Application Entrypoint for Predict-Ai (PrediCore)
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -25,10 +26,8 @@ from app.core.errors import (
     validation_error_handler,
 )
 from app.core.logging import setup_logging
+from app.ml.verify_artifacts import verify_all
 from app.schemas.common import HealthStatus
-
-from pathlib import Path
-from app.ml.verify_artifacts import ArtifactVerificationError, verify_all
 
 setup_logging(settings.LOG_LEVEL)
 

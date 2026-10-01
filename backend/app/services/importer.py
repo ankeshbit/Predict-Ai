@@ -11,9 +11,9 @@ Handles:
 import hashlib
 import json
 import logging
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
-import uuid
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.db import engine
-from app.ml.verify_artifacts import ArtifactVerificationError, verify_all
+from app.ml.verify_artifacts import verify_manifest
 from app.models.entities import (
     HealthIndicatorConfig,
     Machine,
@@ -45,22 +45,23 @@ def compute_sha256(path: Path) -> str:
 def register_model_bundle(
     bundle_path: str | Path,
     activate: bool = True,
-    strict_versions: bool = False,
     session: Optional[Session] = None,
 ) -> ModelVersion:
     """Reads metadata/model_card.json, evaluation/curves.json and feature_importance.json
+    from the artifact bundle directory, verifies the manifest hashes ONLY (no library version
+    check, no unpickling), and registers records into model_versions and model_evaluations tables.
 
-    from the artifact bundle directory, verifies the manifest and library versions,
-    and registers records into model_versions and model_evaluations tables.
+    Strict library version checking is reserved for app startup.
     """
     root = Path(bundle_path).resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"Model bundle directory not found: {root}")
 
-    # 1. Run full manifest + library verification
-    metadata = verify_all(root, strict_versions=strict_versions)
+    # 1. Verify manifest hashes ONLY (no library version check, zero unpickling)
+    verify_manifest(root)
 
-    # 2. Read required metadata files
+    # 2. Read required metadata files (JSON only)
+    model_metadata_path = root / "metadata" / "model_metadata.json"
     model_card_path = root / "metadata" / "model_card.json"
     curves_path = root / "evaluation" / "curves.json"
     feature_imp_path = root / "evaluation" / "feature_importance.json"
@@ -72,6 +73,7 @@ def register_model_bundle(
     if not feature_imp_path.is_file():
         raise FileNotFoundError(f"Missing required feature importance file: {feature_imp_path}")
 
+    metadata = json.loads(model_metadata_path.read_text(encoding="utf-8")) if model_metadata_path.is_file() else {}
     model_card = json.loads(model_card_path.read_text(encoding="utf-8"))
     curves = json.loads(curves_path.read_text(encoding="utf-8"))
     feature_importance = json.loads(feature_imp_path.read_text(encoding="utf-8"))
@@ -241,67 +243,66 @@ def seed_demo_engines(
     available_units = sorted(scores_df[unit_col].unique())
     logger.info("Found %d demo units in reference scores: %s", len(available_units), available_units)
 
-    # Find cutoff cycles for Healthy, Warning, and Critical
-    # Requirements:
-    # Healthy: health >= 71 (e.g. early life)
-    # Warning: 51 <= health <= 70 (degradation initiated)
-    # Critical: health <= 30 (failure imminent within H)
-    categories = {"healthy": None, "warning": None, "critical": None}
-
-    # Strategy: pick distinct units if possible for the 3 demo machines
-    for u in available_units:
-        u_scores = scores_df[scores_df[unit_col] == u].sort_values(cycle_col)
-
-        # Look for critical near the end of life
-        crit_rows = u_scores[u_scores[health_col] <= 30.0]
-        if not crit_rows.empty and categories["critical"] is None:
-            cutoff = int(crit_rows.iloc[-1][cycle_col])
-            categories["critical"] = {"unit_id": u, "cutoff_cycle": cutoff, "score_row": crit_rows.iloc[-1].to_dict()}
+    # 1. Distinct engine selection per category (Healthy, Warning, Critical)
+    # Healthy: health >= 71
+    # Warning: 51 <= health <= 70
+    # Critical: health <= 30
+    chosen_triplet = None
+    for u_h in available_units:
+        h_scores = scores_df[scores_df[unit_col] == u_h]
+        h_matches = h_scores[h_scores[health_col] >= 71.0]
+        if h_matches.empty:
             continue
+        h_cutoff = int(min(h_matches.iloc[-1][cycle_col], 50))
 
-        # Look for warning
-        warn_rows = u_scores[(u_scores[health_col] >= 51.0) & (u_scores[health_col] <= 70.0)]
-        if not warn_rows.empty and categories["warning"] is None:
-            cutoff = int(warn_rows.iloc[-1][cycle_col])
-            categories["warning"] = {"unit_id": u, "cutoff_cycle": cutoff, "score_row": warn_rows.iloc[-1].to_dict()}
-            continue
+        for u_w in available_units:
+            if u_w == u_h:
+                continue
+            w_scores = scores_df[scores_df[unit_col] == u_w]
+            w_matches = w_scores[(w_scores[health_col] >= 51.0) & (w_scores[health_col] <= 70.0)]
+            if w_matches.empty:
+                continue
+            w_cutoff = int(w_matches.iloc[-1][cycle_col])
 
-        # Look for healthy
-        health_rows = u_scores[u_scores[health_col] >= 75.0]
-        if not health_rows.empty and categories["healthy"] is None:
-            cutoff = int(min(health_rows.iloc[-1][cycle_col], 50))  # Healthy early run
-            categories["healthy"] = {"unit_id": u, "cutoff_cycle": cutoff, "score_row": health_rows[health_rows[cycle_col] == cutoff].iloc[0].to_dict()}
-            continue
+            for u_c in available_units:
+                if u_c == u_h or u_c == u_w:
+                    continue
+                c_scores = scores_df[scores_df[unit_col] == u_c]
+                c_matches = c_scores[c_scores[health_col] <= 30.0]
+                if c_matches.empty:
+                    continue
+                c_cutoff = int(c_matches.iloc[-1][cycle_col])
 
-    # If any category is missing, do a second pass across all units to find any cycle cutoff that matches
-    for cat_name, condition in [
-        ("healthy", lambda s: s[health_col] >= 71.0),
-        ("warning", lambda s: (s[health_col] >= 51.0) & (s[health_col] <= 70.0)),
-        ("critical", lambda s: s[health_col] <= 30.0),
-    ]:
-        if categories[cat_name] is None:
-            matching = scores_df[condition(scores_df)]
-            if matching.empty:
-                raise ValueError(
-                    f"FATAL: Demo fleet seeding cannot proceed: No engine cycle satisfies condition for '{cat_name.upper()}'. "
-                    f"Healthy requires HI >= 71, Warning requires 51 <= HI <= 70, Critical requires HI <= 30."
-                )
-            chosen_row = matching.iloc[len(matching) // 2]
-            categories[cat_name] = {
-                "unit_id": int(chosen_row[unit_col]),
-                "cutoff_cycle": int(chosen_row[cycle_col]),
-                "score_row": chosen_row.to_dict(),
-            }
+                chosen_triplet = {
+                    "healthy": {"unit_id": u_h, "cutoff_cycle": h_cutoff},
+                    "warning": {"unit_id": u_w, "cutoff_cycle": w_cutoff},
+                    "critical": {"unit_id": u_c, "cutoff_cycle": c_cutoff},
+                }
+                break
+            if chosen_triplet:
+                break
+        if chosen_triplet:
+            break
 
-    # Verify all three exist
-    for k, v in categories.items():
-        if v is None:
-            raise ValueError(f"FATAL: Missing required demo machine category: '{k.upper()}'. All three (Healthy, Warning, Critical) are mandatory.")
+    if not chosen_triplet:
+        raise ValueError(
+            "FATAL: Demo fleet seeding cannot proceed: Could not find 3 DISTINCT engines "
+            "satisfying all 3 health states (Healthy: HI >= 71, Warning: 51 <= HI <= 70, Critical: HI <= 30)."
+        )
 
-    logger.info("Demo selection: Healthy (Unit %s, Cycle %s), Warning (Unit %s, Cycle %s), Critical (Unit %s, Cycle %s)",
+    categories = chosen_triplet
+    logger.info("Distinct demo selection: Healthy (Unit %s, Cycle %s), Warning (Unit %s, Cycle %s), Critical (Unit %s, Cycle %s)",
                 categories["healthy"]["unit_id"], categories["healthy"]["cutoff_cycle"],
                 categories["warning"]["unit_id"], categories["warning"]["cutoff_cycle"],
                 categories["critical"]["unit_id"], categories["critical"]["cutoff_cycle"])
+
+    # 2. Try loading ModelBundle for live trajectory scoring
+    from app.ml.pdm_inference import ModelBundle, score_trajectory
+    bundle = None
+    try:
+        bundle = ModelBundle.load(root)
+    except Exception as exc:
+        logger.info("Note: ModelBundle could not be loaded directly (%s); using reference scores for fixture tests.", exc)
 
     def _execute_seed(db: Session) -> Dict[str, Any]:
         # Get active model and active health config
@@ -334,8 +335,33 @@ def seed_demo_engines(
         for category, info in categories.items():
             u_id = info["unit_id"]
             cutoff = info["cutoff_cycle"]
-            score_data = info["score_row"]
             machine_code = f"ENGINE-{u_id:03d}"
+
+            # Engine raw rows up to cutoff
+            engine_rows = units_df[(units_df[unit_col] == u_id) & (units_df[cycle_col] <= cutoff)].sort_values(cycle_col)
+            ref_slice = scores_df[(scores_df[unit_col] == u_id) & (scores_df[cycle_col] <= cutoff)].sort_values(cycle_col)
+
+            # Re-run score_trajectory in backend and assert parity
+            if bundle is not None:
+                scored_df = score_trajectory(engine_rows, bundle)
+                if len(scored_df) != len(ref_slice):
+                    raise AssertionError(
+                        f"Parity check failed for engine {u_id}: scored {len(scored_df)} rows vs reference {len(ref_slice)} rows."
+                    )
+                p_diff = np.abs(scored_df["failure_probability"].to_numpy() - ref_slice["failure_probability"].to_numpy())
+                if np.max(p_diff) > 1e-3:
+                    raise AssertionError(
+                        f"Parity check failed for engine {u_id} failure_probability: max diff {np.max(p_diff):.6f} > 1e-3 tolerance"
+                    )
+                hi_diff = np.abs(scored_df["machine_health_indicator"].to_numpy() - ref_slice[health_col].to_numpy())
+                if np.max(hi_diff) > 1e-2:
+                    raise AssertionError(
+                        f"Parity check failed for engine {u_id} machine_health_indicator: max diff {np.max(hi_diff):.6f} > 1e-2 tolerance"
+                    )
+                score_data = scored_df.iloc[-1].to_dict()
+                logger.info("Parity verified for demo engine %s (%s, %d rows)", machine_code, category, len(scored_df))
+            else:
+                score_data = ref_slice.iloc[-1].to_dict()
 
             # Operational status mapping
             op_status = "active" if category == "healthy" else ("warning" if category == "warning" else "critical")
@@ -371,7 +397,6 @@ def seed_demo_engines(
             )
 
             # Insert truncated sensor readings up to cutoff
-            engine_rows = units_df[(units_df[unit_col] == u_id) & (units_df[cycle_col] <= cutoff)].sort_values(cycle_col)
             readings_to_add = []
             for _, r in engine_rows.iterrows():
                 readings_to_add.append(

@@ -2,10 +2,11 @@
 Base Adapter Interface for Telemetry Data Ingestion
 """
 
-from abc import ABC, abstractmethod
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Dict, List, Tuple
+
 import pandas as pd
 
 
