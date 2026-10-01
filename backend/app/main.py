@@ -2,6 +2,7 @@
 FastAPI Main Application Entrypoint for Predict-Ai (PrediCore)
 """
 
+import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -40,6 +41,7 @@ from app.ml.verify_artifacts import verify_all
 from app.schemas.common import HealthStatus
 
 setup_logging(settings.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 
 def verify_active_model_artifacts():
@@ -57,6 +59,7 @@ def verify_active_model_artifacts():
         ]
         for bundle in candidate_bundles:
             verify_all(bundle, strict_versions=True)
+            logger.info("Strict model bundle verification PASSED for '%s' (manifest checksums + Python 3.12 library versions).", bundle.name)
 
 
 @asynccontextmanager
