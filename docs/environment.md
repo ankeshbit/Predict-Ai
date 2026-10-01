@@ -4,11 +4,11 @@
 
 | Component | Target Version | Supported Range | Current Host / Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Python** | `3.11` / `3.12` | `3.10` – `3.12` | **Python 3.10.0 (Host Deviation)** | Host tests executed on Python 3.10.0. Dockerfile uses `python:3.10-slim`, ruff uses `target-version = "py310"`. Final pins and container base image depend strictly on the Colab environment output below. |
+| **Python** | Match bundle runtime | `3.10` – `3.12` | **Python 3.10.0 (Host)** | Container and CI match the bundle runtime. The model was trained on Kaggle, not Colab. The bundle metadata (`library_versions`, `python_version`) is authoritative for the runtime. If the bundle's Python version is not 3.10, change the Dockerfile and CI to match it rather than downgrading the bundle. |
 | **Node.js** | `20.x` | `18.x` – `22.x` | `20.x` (Local) | Frontend build & test environment |
 | **PostgreSQL** | `16.x` | `15.x` – `16.x` | Neon Serverless | Port 6543 pooled (runtime), 5432 direct (migrations) |
 
-> **IMPORTANT**: Final pins for Python, `ml/constraints.txt`, and Dockerfile depend on the Colab `00_environment_check` output. Once pasted below, all target versions will be reconciled to prevent training/serving skew.
+> **AUTHORITATIVE RUNTIME RULE**: The model was trained on Kaggle, not Colab. The bundle metadata (`library_versions`, `python_version`) is authoritative for the runtime. Do not assume Colab versions anywhere. If the bundle's Python version is not 3.10, change the Dockerfile and CI to match it rather than downgrading the bundle.
 
 ---
 
@@ -32,12 +32,12 @@ pydantic==2.7.1
 
 ---
 
-## 3. Human Colab Environment Log
+## 3. Human Kaggle (or Colab) Environment Log
 
-*Run `ml/notebooks/00_environment_check.ipynb` in Google Colab and paste the output below:*
+*Run `ml/notebooks/00_environment_check.ipynb` in Kaggle (or Colab) and record the output below:*
 
 ```text
-======================= [PASTE COLAB 00_ENV OUTPUT HERE] =======================
+======================= [PASTE KAGGLE (OR COLAB) 00_ENV OUTPUT HERE] =======================
 Python version:
 Platform:
 Packages:
@@ -50,5 +50,5 @@ Packages:
   joblib:
   pyyaml:
   pydantic:
-================================================================================
+=============================================================================================
 ```

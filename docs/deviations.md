@@ -1,6 +1,6 @@
 # Deviations from PRD v3.0
 
-This document tracks all approved deviations between the verbatim PRD v3.0 specification (`docs/PRD.md`) and the implemented system, driven by empirical ML findings in the Google Colab training notebook (`AI_Predictive_Maintenance_CMAPSS_FD001.ipynb`).
+This document tracks all approved deviations between the verbatim PRD v3.0 specification (`docs/PRD.md`) and the implemented system, driven by empirical ML findings in the Kaggle (or Colab) training notebook (`AI_Predictive_Maintenance_CMAPSS_FD001.ipynb`).
 
 ---
 
@@ -12,7 +12,7 @@ $$\text{Health Indicator} = 100 - (W_{\text{risk}} \cdot s_{\text{risk}} + W_{\t
 Subject to constraint: $W_{\text{risk}} + W_{\text{anom}} + W_{\text{trend}} = 100\%$.
 
 ### Implemented Notebook-Driven Formulation
-In the Colab ML pipeline (`ml/notebooks/AI_Predictive_Maintenance_CMAPSS_FD001.ipynb`), the linear weighted sum was replaced with a multiplicative interaction that decomposes into an additive penalty breakdown:
+In the Kaggle (or Colab) ML pipeline (`ml/notebooks/AI_Predictive_Maintenance_CMAPSS_FD001.ipynb`), the linear weighted sum was replaced with a multiplicative interaction that decomposes into an additive penalty breakdown:
 $$\text{HI} = \operatorname{clip}\Big(100 \times (1 - P_{\text{fail}}) \times (1 - w_a \cdot s_{\text{anom}}) - \text{penalty}_{\text{DQ}}, \, 0, \, 100\Big)$$
 
 Before clipping, the formula decomposes additively for clear UI explainability:
@@ -42,7 +42,7 @@ The failure prediction horizon $H = 30$ cycles is established as an operational 
 PRD v3.0 referenced reporting offline validation metrics against a single held-out evaluation dataset.
 
 ### Implemented Notebook-Driven Decision
-To provide rigorous transparency without conflating validation sets, the Colab pipeline evaluates and stores metrics for two distinct evaluation sets in `model_evaluations`:
+To provide rigorous transparency without conflating validation sets, the Kaggle (or Colab) pipeline evaluates and stores metrics for two distinct evaluation sets in `model_evaluations`:
 1. **Internal Test Set**: 20 held-out engine trajectories from the C-MAPSS training set (unseen during model training and threshold tuning).
 2. **Official C-MAPSS Test Benchmark (`test_FD001`)**: The standard 100-engine NASA benchmark test set scored against ground-truth remaining useful life (RUL) vectors.
 

@@ -1,13 +1,15 @@
-# Google Colab Training Notebook Contract (Gate H1)
+# Kaggle (or Colab) Training Notebook Contract (Gate H1)
 
-This contract defines the exact interface between your Google Colab training notebook and the Predict-Ai platform.
+This contract defines the exact interface between your Kaggle (or Colab) training notebook and the Predict-Ai platform.
 The platform backend and evaluation engine strictly depend on the contracts provided by `pdm_core`.
+
+> **AUTHORITATIVE RUNTIME RULE**: The model was trained on Kaggle, not Colab. The bundle metadata (`library_versions`, `python_version`) is authoritative for the runtime. Do not assume Colab versions anywhere.
 
 ---
 
-## 1. Environment & Setup in Colab
+## 1. Environment & Setup in Kaggle (or Colab)
 
-In the first cell of your Google Colab notebook, install `pdm_core` directly from the repository:
+In the setup cell of your Kaggle (or Colab) notebook, install `pdm_core` directly from the repository:
 
 ```python
 # Clone repository and install shared pdm_core in editable mode
@@ -16,7 +18,7 @@ In the first cell of your Google Colab notebook, install `pdm_core` directly fro
 !pip install -e ml/
 ```
 
-Verify your Colab environment pins against `ml/constraints.txt` (especially `numpy==1.26.4`, `scikit-learn==1.4.2`, and `xgboost==2.0.3`).
+Verify your Kaggle (or Colab) environment pins against `ml/constraints.txt` (especially `numpy==1.26.4`, `scikit-learn==1.4.2`, and `xgboost==2.0.3`).
 
 ---
 
