@@ -10,8 +10,8 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('engineer@predicore.internal');
-  const [password, setPassword] = useState('EngineerSecurePass123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -188,8 +188,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 size="sm"
                 disabled={loginMutation.isPending}
                 onClick={() => {
-                  setEmail('engineer@predicore.internal');
-                  setPassword('EngineerSecurePass123!');
+                  // Demo quick-login: fires directly without revealing credentials in form state
                   handlePerformLogin('engineer@predicore.internal', 'EngineerSecurePass123!');
                 }}
                 className="w-full text-xs text-slate-200 justify-center"
