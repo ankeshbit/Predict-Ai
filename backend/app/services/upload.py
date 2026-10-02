@@ -20,7 +20,7 @@ MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 MAX_UPLOAD_ROWS = 250_000
 STAGING_EXPIRY_SECONDS = 3600  # 1 hour TTL
 
-STAGING_DIR = Path("backend/staging_uploads").resolve()
+STAGING_DIR = Path(__file__).resolve().parent.parent.parent / "staging_uploads"
 STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
 # Disallowed binary magic byte prefixes
@@ -132,8 +132,6 @@ def stage_uploaded_file(upload_file: UploadFile) -> Tuple[str, Dict[str, Any]]:
 
                 total_bytes += len(chunk)
                 if total_bytes > MAX_UPLOAD_SIZE_BYTES:
-                    # Clean up partially written file
-                    destination_path.unlink(missing_ok=True)
                     raise AppError(
                         status_code=413,
                         code="PAYLOAD_TOO_LARGE",

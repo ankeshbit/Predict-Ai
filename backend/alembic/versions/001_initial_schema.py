@@ -360,25 +360,6 @@ def upgrade() -> None:
             )
         )
 
-    # Seed initial users (admin + engineer)
-    admin_id = uuid.uuid4()
-    admin_hash = "$argon2id$v=19$m=65536,t=3,p=4$DkFIKQWAUMp5L6XU+p9TCg$eaikMh1M16BLc919oX+s8i2EzWDPOQgsth0202cy4hI"
-    engineer_id = uuid.uuid4()
-    engineer_hash = "$argon2id$v=19$m=65536,t=3,p=4$R8iZk1JKqTUmBMA4J+R8Tw$5oEimpfK33ouS4YmDYHXWk8MlyRZ/ttIYdhDCn//qIM"
-
-    op.execute(
-        sa.text(
-            f"INSERT INTO users (id, email, password_hash, role, is_active) "
-            f"VALUES ('{admin_id}', 'admin@predicore.internal', '{admin_hash}', 'admin', TRUE)"
-        )
-    )
-    op.execute(
-        sa.text(
-            f"INSERT INTO users (id, email, password_hash, role, is_active) "
-            f"VALUES ('{engineer_id}', 'engineer@predicore.internal', '{engineer_hash}', 'engineer', TRUE)"
-        )
-    )
-
 
 def downgrade() -> None:
     op.drop_table("audit_log")

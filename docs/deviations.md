@@ -76,3 +76,23 @@ Five demo machines are deterministically seeded to provide a balanced fleet of *
 - **`ENGINE-077` (Warning Demo)**: Truncated at cycle 125 ($\text{HI} = 51.51$), chosen for having the widest Warning window (20 cycles with $51 \le \text{HI} \le 70$, span 99–134).
 - **`ENGINE-029` (Warning Demo)**: Truncated at cycle 125 ($\text{HI} = 63.36$, health indicator in the 60–65 Warning range).
 - **`ENGINE-048` (Critical Demo)**: Truncated at final cycle 231 ($\text{HI} = 0.75 \le 30$), leaving an open high-risk alert with recommendation snapshot.
+
+---
+
+## 6. Dependency Security Audit & Python Runtime Matrix (Accepted Risk)
+
+### ML Artifact Pinned Dependencies
+The model artifacts were fitted and serialized under Python 3.12.13 with exact pinned dependencies in `backend/requirements-inference.txt`:
+```text
+numpy==2.0.2
+pandas==2.3.3
+scikit-learn==1.6.1
+scipy==1.16.3
+joblib==1.5.3
+xgboost==3.2.0
+```
+
+### Audit Findings & Accepted Risk
+1. **Zero Vulnerabilities in Core Inference**: Running `pip-audit -r requirements-inference.txt --no-deps --disable-pip` against both PyPI and OSV vulnerability databases reports **0 known vulnerabilities** for all 6 pinned packages.
+2. **Python >= 3.11 Constraint**: `scipy==1.16.3` strictly requires Python >= 3.11. Production deployment runs in Docker with Python 3.12.
+3. **Immutability of Bundled Packages**: In accordance with PRD §1.4 (*Strict Separation of Training and Inference*), the backend never retrains or adjusts model weights. Changing serialized versions of `scikit-learn` or `scipy` without full retraining in Colab risks silent numerical drift or unpickling incompatibility. The versions in `requirements-inference.txt` are therefore accepted frozen dependencies.

@@ -17,9 +17,11 @@ from app.schemas.scoring import ScoringRunRequest, ScoringRunResponse
 from app.services.scoring_service import run_scoring_job
 
 router = APIRouter(prefix="/scoring-runs", tags=["Scoring Runs"])
+legacy_scoring_router = APIRouter(prefix="/scoring", tags=["Scoring Runs"])
 
 
 @router.post("", response_model=ScoringRunResponse, status_code=202)
+@legacy_scoring_router.post("/run", response_model=ScoringRunResponse, status_code=202)
 def create_scoring_run(
     payload: ScoringRunRequest,
     background_tasks: BackgroundTasks,

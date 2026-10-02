@@ -7,11 +7,13 @@ Commands:
 """
 
 import argparse
+import os
 import sys
 
 from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.db import engine
 from app.core.security import get_password_hash
 from app.models.entities import HealthIndicatorConfig, User
@@ -71,7 +73,10 @@ def migrate_check():
 
 
 def seed_defaults():
-    """Seeds default health indicator config and test admin/engineer accounts."""
+    """Seeds default health indicator config and admin/engineer accounts.
+    Admin and engineer passwords MUST come from INITIAL_ADMIN_PASSWORD and INITIAL_ENGINEER_PASSWORD
+    environment variables. Fails immediately if either is missing.
+    """
     with Session(engine) as db:
         cfg = db.scalar(select(HealthIndicatorConfig).where(HealthIndicatorConfig.is_active.is_(True)))
         if not cfg:
@@ -85,32 +90,75 @@ def seed_defaults():
             db.add(cfg)
             print("[+] Seeded HealthIndicatorConfig v1.0")
 
-        # Check default admin
-        admin = db.scalar(select(User).where(User.email == "admin@predicore.internal"))
+        # Check admin
+        admin_email = settings.INITIAL_ADMIN_EMAIL.lower()
+        admin = db.scalar(select(User).where(User.email == admin_email))
         if not admin:
+            if not settings.INITIAL_ADMIN_PASSWORD:
+                print("[-] Fatal error: INITIAL_ADMIN_PASSWORD environment variable is missing.", file=sys.stderr)
+                print("[-] Admin account cannot be seeded without an explicit password from the environment.", file=sys.stderr)
+                sys.exit(1)
             admin = User(
-                email="admin@predicore.internal",
-                password_hash=get_password_hash("AdminSecurePass123!"),
+                email=admin_email,
+                password_hash=get_password_hash(settings.INITIAL_ADMIN_PASSWORD),
                 role="admin",
                 is_active=True,
             )
             db.add(admin)
-            print("[+] Seeded default admin: admin@predicore.internal")
+            print(f"[+] Seeded admin: {admin_email}")
 
-        # Check default engineer
-        eng = db.scalar(select(User).where(User.email == "engineer@predicore.internal"))
+        # Check engineer
+        eng_email = settings.INITIAL_ENGINEER_EMAIL.lower()
+        eng = db.scalar(select(User).where(User.email == eng_email))
         if not eng:
+            if not settings.INITIAL_ENGINEER_PASSWORD:
+                print("[-] Fatal error: INITIAL_ENGINEER_PASSWORD environment variable is missing.", file=sys.stderr)
+                print("[-] Engineer account cannot be seeded without an explicit password from the environment.", file=sys.stderr)
+                sys.exit(1)
             eng = User(
-                email="engineer@predicore.internal",
-                password_hash=get_password_hash("EngineerSecurePass123!"),
+                email=eng_email,
+                password_hash=get_password_hash(settings.INITIAL_ENGINEER_PASSWORD),
                 role="engineer",
                 is_active=True,
             )
             db.add(eng)
-            print("[+] Seeded default engineer: engineer@predicore.internal")
+            print(f"[+] Seeded engineer: {eng_email}")
 
         db.commit()
     print("[+] Default seed completed.")
+
+
+def reset_admin_password_cmd(password: str | None = None):
+    """Resets the admin account password in the database.
+    Password is read from ADMIN_NEW_PASSWORD env var or --password argument. Never echoed.
+    """
+    pwd = password or os.environ.get("ADMIN_NEW_PASSWORD")
+    if not pwd:
+        print("[-] Fatal error: ADMIN_NEW_PASSWORD environment variable or --password argument required.", file=sys.stderr)
+        sys.exit(1)
+    if len(pwd) < 12:
+        print("[-] Fatal error: Admin password must be at least 12 characters long.", file=sys.stderr)
+        sys.exit(1)
+
+    with Session(engine) as db:
+        admin = db.scalar(select(User).where(User.role == "admin"))
+        if not admin:
+            # If no admin exists, create one using INITIAL_ADMIN_EMAIL
+            admin = User(
+                email=settings.INITIAL_ADMIN_EMAIL.lower(),
+                password_hash=get_password_hash(pwd),
+                role="admin",
+                is_active=True,
+            )
+            db.add(admin)
+            db.commit()
+            print(f"[+] Success: Created admin account {admin.email} with new password.")
+            return
+
+        admin.password_hash = get_password_hash(pwd)
+        admin.is_active = True
+        db.commit()
+        print(f"[+] Success: Admin password for {admin.email} has been reset.")
 
 
 def register_model_cmd(bundle_path: str, activate: bool):
@@ -164,6 +212,10 @@ def main():
     demo_parser = subparsers.add_parser("seed-demo", help="Seed demo fleet from bundle")
     demo_parser.add_argument("--bundle-path", required=True, help="Path to model bundle directory containing demo/ folder")
 
+    # reset-admin-password
+    reset_parser = subparsers.add_parser("reset-admin-password", help="Reset admin account password securely from env var or arg")
+    reset_parser.add_argument("--password", required=False, default=None, help="New admin password (optional; otherwise read from ADMIN_NEW_PASSWORD env var)")
+
     args = parser.parse_args()
 
     if args.command == "create-user":
@@ -172,6 +224,8 @@ def main():
         migrate_check()
     elif args.command == "seed-defaults":
         seed_defaults()
+    elif args.command == "reset-admin-password":
+        reset_admin_password_cmd(args.password)
     elif args.command == "register-model":
         register_model_cmd(args.bundle_path, args.activate)
     elif args.command == "seed-demo":

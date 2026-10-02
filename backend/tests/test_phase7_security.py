@@ -532,3 +532,62 @@ def test_npm_audit_no_high_critical_vulnerabilities():
         f"High: {high_count}, Critical: {critical_count}.\n"
         "Run 'npm audit fix' or 'npm audit fix --force' and review breaking changes."
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 11. CORS ALLOW-LIST ENFORCEMENT
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_cors_trusted_origin_allowed(client):
+    """Requests from configured CORS origins must receive Access-Control-Allow-Origin."""
+    from app.core.config import settings
+    allowed_origin = settings.cors_origin_list[0] if settings.cors_origin_list else "http://localhost:5173"
+    response = client.get(
+        "/health",
+        headers={"Origin": allowed_origin},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == allowed_origin
+
+
+def test_cors_untrusted_origin_rejected(client):
+    """Requests from untrusted origins must NOT receive an Access-Control-Allow-Origin header."""
+    untrusted_origin = "https://malicious-attacker-site.com"
+    response = client.get(
+        "/health",
+        headers={"Origin": untrusted_origin},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") != untrusted_origin
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 12. NON-ADMIN ROUTES RETURN 403 (FORBIDDEN), NEVER 404
+# ─────────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("method,path,payload", [
+    ("GET", "/api/v1/admin/audit-log", None),
+    ("POST", "/api/v1/admin/demo/reset", None),
+    ("POST", "/api/v1/demo/reset", None),
+    ("POST", "/api/v1/machines", {"machine_code": "FORBIDDEN-01", "name": "Illegal Engine"}),
+    ("POST", "/api/v1/scoring/run", {"dataset_id": "00000000-0000-0000-0000-000000000000"}),
+])
+def test_non_admin_engineer_receives_403_not_404(client, engineer_headers, method, path, payload):
+    """
+    When an authenticated engineer calls an admin-only route, the API must return
+    HTTP 403 Forbidden (with error code 'FORBIDDEN'), NOT 404 Not Found.
+    """
+    if method == "GET":
+        response = client.get(path, headers=engineer_headers)
+    elif method == "POST":
+        response = client.post(path, headers=engineer_headers, json=payload or {})
+    else:
+        response = getattr(client, method.lower())(path, headers=engineer_headers)
+
+    assert response.status_code == 403, (
+        f"{method} {path} returned {response.status_code}, expected 403 FORBIDDEN. "
+        f"Response body: {response.text}"
+    )
+    body = response.json()
+    assert body["error"]["code"] == "FORBIDDEN"
+

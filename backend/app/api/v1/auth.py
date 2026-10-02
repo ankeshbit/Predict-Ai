@@ -12,12 +12,13 @@ from app.core.db import get_db
 from app.core.errors import ConflictError, UnauthorizedError
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.entities import User
+from app.core.rate_limit import login_limiter, rate_limit_check
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit_check(login_limiter))])
 def login(
     payload: LoginRequest,
     request: Request,

@@ -27,7 +27,7 @@ from app.api.v1.machines import router as machines_router
 from app.api.v1.maintenance import router as maintenance_router
 from app.api.v1.models import router as models_router
 from app.api.v1.predictions import router as predictions_router
-from app.api.v1.scoring import router as scoring_router
+from app.api.v1.scoring import legacy_scoring_router, router as scoring_router
 from app.api.v1.settings import admin_router, settings_router
 from app.core import db as core_db
 from app.core.config import settings
@@ -166,6 +166,7 @@ app.include_router(machines_router, prefix="/api/v1")
 app.include_router(datasets_router, prefix="/api/v1")
 app.include_router(jobs_router, prefix="/api/v1")
 app.include_router(scoring_router, prefix="/api/v1")
+app.include_router(legacy_scoring_router, prefix="/api/v1")
 app.include_router(predictions_router, prefix="/api/v1")
 app.include_router(anomalies_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")

@@ -44,7 +44,7 @@ The platform enforces strict separation across 4 chronological stages:
   - Scope: Telemetry monitoring, alert triage, maintenance recording.
 - **System Administrator**:
   - Email: `admin@predicore.internal`
-  - Passcode: `AdminSecurePass123!`
+  - Passcode: Set via `INITIAL_ADMIN_PASSWORD` env var or `python -m app.cli reset-admin-password` (no default in repo).
   - Scope: Machine onboarding, schema mapping, scoring runs, health formula weights, system audit logs.
 
 ---

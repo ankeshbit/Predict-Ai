@@ -17,6 +17,15 @@ TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
 )
+
+# Safety guard: NEVER point TEST_DATABASE_URL at Neon
+if "neon.tech" in TEST_DATABASE_URL or "neon.tech" in os.environ.get("DATABASE_URL", ""):
+    raise RuntimeError(
+        "CRITICAL SAFETY GUARD: TEST_DATABASE_URL or DATABASE_URL points to a Neon database (*.neon.tech)! "
+        "Tests must run ONLY against throwaway local Postgres (e.g. docker-compose). "
+        "Running test suites against Neon is strictly forbidden per AGENTS.md to prevent data corruption."
+    )
+
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ["DATABASE_URL_DIRECT"] = TEST_DATABASE_URL
 

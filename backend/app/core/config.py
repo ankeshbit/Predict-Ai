@@ -2,7 +2,7 @@
 Application configuration via Pydantic Settings
 """
 
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -31,11 +31,11 @@ class Settings(BaseSettings):
     # Model artifacts directory
     MODEL_ARTIFACTS_DIR: str = "model_artifacts"
 
-    # Initial admin seed
+    # Initial account seed (passwords MUST come from environment variables)
     INITIAL_ADMIN_EMAIL: str = "admin@predicore.internal"
-    INITIAL_ADMIN_PASSWORD: str = "AdminSecurePass123!"
+    INITIAL_ADMIN_PASSWORD: Optional[str] = None
     INITIAL_ENGINEER_EMAIL: str = "engineer@predicore.internal"
-    INITIAL_ENGINEER_PASSWORD: str = "EngineerSecurePass123!"
+    INITIAL_ENGINEER_PASSWORD: Optional[str] = None
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),
