@@ -9,6 +9,7 @@ Validates PRD FR-11:
 """
 
 import uuid
+
 from fastapi.testclient import TestClient
 
 from app.models.entities import Alert, Machine, MaintenanceRecord, ModelVersion, User

@@ -70,9 +70,9 @@ PRD v3.0 referenced seeding eight demo machines.
 
 ### Implemented Notebook-Driven Decision
 The production Kaggle training pipeline evaluated and exported exactly five held-out test engines in `demo_units.csv` (`[29, 48, 70, 77, 97]`) with reference trajectories in `demo_reference_scores.csv`. 
-Five demo machines are deterministically seeded:
-- **`ENGINE-077` (Warning Demo)**: Truncated at cycle 125, chosen for having the widest Warning window (20 cycles with $51 \le \text{HI} \le 70$, span 99–134).
-- **`ENGINE-048` (Critical Demo)**: Truncated at final cycle 231 ($\text{HI} = 0.75 \le 30$).
-- **`ENGINE-070` (Healthy Demo)**: Truncated at early cycle 35 ($\text{HI} = 99.95$, early Excellent cycle).
-- **`ENGINE-029`**: Complete held-out trajectory up to cycle 163.
-- **`ENGINE-097`**: Complete held-out trajectory up to cycle 202.
+Five demo machines are deterministically seeded to provide a balanced fleet of **2 Healthy, 2 Warning, 1 Critical**:
+- **`ENGINE-070` (Healthy Demo)**: Truncated at early cycle 35 ($\text{HI} = 99.95$, early Excellent/Healthy cycle).
+- **`ENGINE-097` (Healthy Demo)**: Truncated at early cycle 35 ($\text{HI} = 99.96$, early Excellent/Healthy cycle).
+- **`ENGINE-077` (Warning Demo)**: Truncated at cycle 125 ($\text{HI} = 51.51$), chosen for having the widest Warning window (20 cycles with $51 \le \text{HI} \le 70$, span 99–134).
+- **`ENGINE-029` (Warning Demo)**: Truncated at cycle 125 ($\text{HI} = 63.36$, health indicator in the 60–65 Warning range).
+- **`ENGINE-048` (Critical Demo)**: Truncated at final cycle 231 ($\text{HI} = 0.75 \le 30$), leaving an open high-risk alert with recommendation snapshot.

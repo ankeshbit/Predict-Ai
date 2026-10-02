@@ -5,8 +5,9 @@ PRD §14.7
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, ConfigDict
+from typing import List
+
+from pydantic import BaseModel
 
 
 class DashboardSummaryResponse(BaseModel):

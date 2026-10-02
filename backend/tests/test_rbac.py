@@ -4,7 +4,6 @@ Verifies strict enforcement of Admin vs Engineer privileges, and confirms
 that machine status cannot be directly patched (workflow side effects only).
 """
 
-import io
 import uuid
 
 from app.models.entities import Dataset, Machine

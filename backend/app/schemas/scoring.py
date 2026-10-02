@@ -5,6 +5,7 @@ PRD §14.4
 
 import uuid
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 

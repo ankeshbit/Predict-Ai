@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # Neon PostgreSQL database connections
-    DATABASE_URL: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test"
-    DATABASE_URL_DIRECT: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test"
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai"
+    DATABASE_URL_DIRECT: str = "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai"
     DB_CONNECT_TIMEOUT: int = 10  # Seconds; ~10s for Neon cold start, override to 2 in tests
 
     # CORS configuration

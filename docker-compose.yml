@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: predict_ai_test
+      POSTGRES_DB: predict_ai
     ports:
       - "5432:5432"
     volumes:
@@ -27,8 +27,8 @@ services:
       dockerfile: backend/Dockerfile
     container_name: predict_ai_backend
     environment:
-      - DATABASE_URL=postgresql+psycopg://postgres:postgrespassword@test-postgres:5432/predict_ai_test
-      - DATABASE_URL_DIRECT=postgresql://postgres:postgrespassword@test-postgres:5432/predict_ai_test
+      - DATABASE_URL=postgresql+psycopg://postgres:postgrespassword@test-postgres:5432/predict_ai
+      - DATABASE_URL_DIRECT=postgresql://postgres:postgrespassword@test-postgres:5432/predict_ai
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./backend/model_artifacts:/app/backend/model_artifacts

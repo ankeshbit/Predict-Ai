@@ -62,6 +62,7 @@ coverage.xml
 backend/model_artifacts/*.zip
 backend/model_artifacts/*.tar.gz
 !backend/model_artifacts/**
+backend/model_artifacts/**/__pycache__/
 backend/model_artifacts/**/*.zip
 backend/model_artifacts/**/*.tar.gz
 database/sample_data/*.raw

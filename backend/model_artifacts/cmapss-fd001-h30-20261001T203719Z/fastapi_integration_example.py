@@ -6,10 +6,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
+import verify_artifacts  # VENDORED stdlib-only copy (do not import it from the artifact folder)
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
-import verify_artifacts                     # VENDORED stdlib-only copy (do not import it from the artifact folder)
 
 ARTIFACT_DIR = Path("artifacts")
 state = {}
@@ -51,7 +50,7 @@ def predict(req: PredictRequest):
 
 @app.post("/trajectory")
 def trajectory(req: PredictRequest):
-    from pdm_inference import score_trajectory, DataInvalidError
+    from pdm_inference import DataInvalidError, score_trajectory
     try:
         return score_trajectory(pd.DataFrame(req.history), state["bundle"]).to_dict(orient="records")
     except DataInvalidError as e:

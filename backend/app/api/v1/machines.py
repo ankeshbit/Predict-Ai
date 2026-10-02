@@ -13,7 +13,15 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
-from app.models.entities import Alert, Anomaly, Machine, MaintenanceRecord, Prediction, SensorReading, User
+from app.models.entities import (
+    Alert,
+    Anomaly,
+    Machine,
+    MaintenanceRecord,
+    Prediction,
+    SensorReading,
+    User,
+)
 from app.schemas.machines import (
     MachineArchiveRequest,
     MachineCreateRequest,

@@ -3,7 +3,7 @@ Predictions & Explainability API Router (PRD §14.4)
 """
 
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -70,8 +70,6 @@ def _to_prediction_response(p: Prediction) -> PredictionResponse:
         reliability_flags=p.reliability_flags or {},
     )
 
-
-from typing import List, Optional
 
 @router.get("/predictions", response_model=List[PredictionResponse])
 def list_predictions(

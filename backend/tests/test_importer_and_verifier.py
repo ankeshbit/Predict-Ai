@@ -16,8 +16,6 @@ from app.models.entities import Machine
 from app.services.importer import register_model_bundle, seed_demo_engines
 
 
-
-
 def test_verifier_passes_on_valid_bundle(mock_valid_bundle):
     """Verifier must succeed when hashes and versions match."""
     metadata = verify_all(mock_valid_bundle, strict_versions=False)
@@ -157,4 +155,59 @@ def test_anomaly_model_registered_separately(mock_valid_bundle, db):
     assert anom_mv.evaluation is not None
     assert anom_mv.evaluation.task == "anomaly"
     assert anom_mv.evaluation.evaluated_at == mv.evaluation.evaluated_at
+    # Anomaly decision_threshold must be null unless bundle defines alarm threshold
+    assert anom_mv.decision_threshold is None
+
+
+def test_stored_evaluation_metrics_match_registered_bundle(db):
+    """Test fails if stored evaluation metrics differ from the registered bundle's model_card.metrics.
+
+    Validates exact real values for threshold 0.10:
+    - internal_test: precision 0.692, recall 0.968, F1 0.807, PR-AUC 0.962, ROC-AUC 0.991, accuracy 0.930
+    - official_test_all_rows: precision 0.591, recall 0.852, PR-AUC 0.8157
+    - last_cycle: precision 0.80, recall 0.96
+    """
+    from pathlib import Path
+    prod_bundle_dir = Path(__file__).resolve().parent.parent / "model_artifacts" / "cmapss-fd001-h30-20261001T203719Z"
+    if not prod_bundle_dir.is_dir():
+        pytest.skip("Production model bundle not found in model_artifacts")
+
+    mv = register_model_bundle(prod_bundle_dir, activate=True, session=db)
+    eval_rec = mv.evaluation
+    assert eval_rec is not None
+
+    model_card = json.loads((prod_bundle_dir / "metadata" / "model_card.json").read_text(encoding="utf-8"))
+    expected_metrics = model_card.get("metrics", {})
+
+    # Check internal_test
+    stored_internal = eval_rec.metrics.get("internal_test", {})
+    assert stored_internal["precision"] == pytest.approx(0.692, abs=1e-3)
+    assert stored_internal["recall"] == pytest.approx(0.968, abs=1e-3)
+    assert stored_internal["f1"] == pytest.approx(0.807, abs=1e-3)
+    assert stored_internal["pr_auc"] == pytest.approx(0.962, abs=1e-3)
+    assert stored_internal["roc_auc"] == pytest.approx(0.991, abs=1e-3)
+    assert stored_internal["accuracy"] == pytest.approx(0.930, abs=1e-3)
+
+    # Check official_test_all_rows
+    stored_official = eval_rec.metrics.get("official_test_all_rows", {})
+    assert stored_official["precision"] == pytest.approx(0.591, abs=1e-3)
+    assert stored_official["recall"] == pytest.approx(0.852, abs=1e-3)
+    assert stored_official["pr_auc"] == pytest.approx(0.8157, abs=1e-3)
+
+    # Check official_test_last_cycle_per_unit
+    stored_last = eval_rec.metrics.get("official_test_last_cycle_per_unit", {})
+    assert stored_last["precision"] == pytest.approx(0.80, abs=1e-2)
+    assert stored_last["recall"] == pytest.approx(0.96, abs=1e-2)
+
+    # Cross-verify every key present in expected_metrics
+    for split_key, split_dict in expected_metrics.items():
+        assert split_key in eval_rec.metrics, f"Missing split {split_key} in stored metrics"
+        stored_split = eval_rec.metrics[split_key]
+        for metric_name, expected_val in split_dict.items():
+            if isinstance(expected_val, (int, float)):
+                assert metric_name in stored_split, f"Missing metric {metric_name} in stored {split_key}"
+                assert stored_split[metric_name] == pytest.approx(expected_val, rel=1e-4), (
+                    f"Metric mismatch for {split_key}.{metric_name}: stored={stored_split[metric_name]} vs expected={expected_val}"
+                )
+
 

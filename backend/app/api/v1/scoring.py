@@ -4,7 +4,6 @@ Executes asynchronous batch scoring runs on compatible datasets.
 """
 
 import uuid
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import select

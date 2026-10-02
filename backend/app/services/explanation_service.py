@@ -4,14 +4,15 @@ Generates traceable feature contributions, sensor trend facts, and template-base
 strictly without fabricated physical semantics or LLMs in the prediction path.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.models.entities import ModelEvaluation, ModelVersion, Prediction, SensorReading
+from app.models.entities import Prediction, SensorReading
 from app.schemas.predictions import ExplanationResponse, FeatureContribution
 
 
@@ -34,23 +35,6 @@ def compute_prediction_explanation(
         )
         .order_by(SensorReading.cycle_index.asc())
     ).all()
-
-    # Get evaluation global feature importance as reference if available
-    eval_record = db.scalar(
-        select(ModelEvaluation).where(
-            ModelEvaluation.model_version_id == pred.failure_model_version_id
-        )
-    )
-
-    top_features_meta = []
-    if eval_record and eval_record.feature_importance:
-        # Sort by importance descending
-        sorted_fi = sorted(
-            eval_record.feature_importance,
-            key=lambda x: abs(float(x.get("importance", 0.0))),
-            reverse=True,
-        )
-        top_features_meta = sorted_fi[:5]
 
     # Compute sensor trend facts for top candidate sensors
     trend_facts: List[Dict[str, Any]] = []

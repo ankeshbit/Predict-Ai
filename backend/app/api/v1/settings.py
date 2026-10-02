@@ -3,17 +3,17 @@ Settings & Admin API Router (PRD §14.8)
 Provides system configurations, alert rules, health indicator tuning, reliability parameters, and audit logging.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 import uuid
+from datetime import datetime, timezone
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import NotFoundError, ValidationError
 from app.models.entities import (
     AlertRule,
     AuditLog,

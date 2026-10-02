@@ -7,26 +7,14 @@ Phase 4 Integration Tests:
 - Maintenance Workflow (Human-in-the-loop decision recording and operational status lifecycle side-effects)
 """
 
-import json
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
-
-import pytest
-from sqlalchemy import select
 
 from app.models.entities import (
     Alert,
-    HealthIndicatorConfig,
     Machine,
-    MaintenanceRecord,
-    ModelEvaluation,
-    ModelVersion,
-    Prediction,
     SensorReading,
-    User,
 )
-from app.services.importer import register_model_bundle, seed_demo_engines
+from app.services.importer import register_model_bundle
 from app.services.scoring_service import score_machine_trajectory
 
 
@@ -96,7 +84,7 @@ def test_health_config_endpoints(client, engineer_headers, admin_headers, db):
 def test_scoring_engine_and_predictions_with_breakdown(mock_valid_bundle, client, engineer_headers, monkeypatch, db):
     """Verifies trajectory scoring service and GET /machines/{id}/predictions with additive breakdown."""
     # Register and activate model
-    mv = register_model_bundle(mock_valid_bundle, activate=True, session=db)
+    register_model_bundle(mock_valid_bundle, activate=True, session=db)
 
     # Mock ModelBundle.load and score_trajectory for synthetic test
     class DummyBundle:

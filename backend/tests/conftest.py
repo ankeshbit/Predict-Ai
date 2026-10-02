@@ -7,6 +7,7 @@ Tables are cleanly truncated between tests.
 
 import json
 import os
+
 os.environ["TESTING"] = "1"
 import uuid
 from pathlib import Path
@@ -18,6 +19,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from alembic import command
+from app.core import db as core_db
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import create_access_token, get_password_hash
@@ -27,17 +29,23 @@ from app.models.entities import HealthIndicatorConfig, User
 # Ensure fast timeout in tests so DB connection attempts don't stall
 os.environ.setdefault("DB_CONNECT_TIMEOUT", "2")
 
-# Database URL for tests - points to PostgreSQL 16
+# Database URL for tests - strictly isolated from dev database
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    settings.DATABASE_URL or "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
+    "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
 )
+settings.DATABASE_URL = TEST_DATABASE_URL
+settings.DATABASE_URL_DIRECT = TEST_DATABASE_URL
 
 test_engine = create_engine(
     TEST_DATABASE_URL,
     pool_pre_ping=True,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+# Rebind app SessionLocal to test_engine during tests to prevent leaking into dev DB
+core_db.engine = test_engine
+core_db.SessionLocal = TestingSessionLocal
 
 ALL_TABLES = [
     "audit_log",

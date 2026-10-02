@@ -14,7 +14,12 @@ from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
 from app.models.entities import Alert, User
-from app.schemas.alerts import AlertAcknowledgeRequest, AlertListResponse, AlertResolveRequest, AlertResponse
+from app.schemas.alerts import (
+    AlertAcknowledgeRequest,
+    AlertListResponse,
+    AlertResolveRequest,
+    AlertResponse,
+)
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 

@@ -11,10 +11,16 @@ Verifies all newly built endpoints for:
 """
 
 import uuid
-import pytest
+
 from fastapi.testclient import TestClient
 
-from app.models.entities import Alert, Anomaly, Dataset, Machine, ModelEvaluation, ModelVersion, Prediction, SensorReading
+from app.models.entities import (
+    Alert,
+    Dataset,
+    Machine,
+    ModelVersion,
+    SensorReading,
+)
 from app.services.importer import register_model_bundle
 from app.services.scoring_service import run_scoring_job, score_machine_trajectory
 

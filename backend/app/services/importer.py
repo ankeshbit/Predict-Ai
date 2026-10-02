@@ -12,7 +12,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -21,11 +21,15 @@ import pandas as pd
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.core.db import engine
+from app.ml.pdm_recommendation import recommend_maintenance
 from app.ml.verify_artifacts import verify_manifest
 from app.models.entities import (
     Alert,
+    AlertRule,
     Anomaly,
+    Dataset,
     HealthIndicatorConfig,
     Machine,
     MaintenanceRecord,
@@ -269,6 +273,18 @@ def register_model_bundle(
                 .values(is_active=False)
             )
 
+        # Anomaly decision_threshold: null or bundle anomaly alarm threshold (no default)
+        anom_alarm_threshold = None
+        if isinstance(metadata.get("anomaly"), dict):
+            anom_alarm_threshold = metadata["anomaly"].get("alarm_threshold")
+        elif isinstance(model_card.get("anomaly_detection"), dict):
+            anom_alarm_threshold = model_card["anomaly_detection"].get("alarm_threshold")
+        if anom_alarm_threshold is not None:
+            try:
+                anom_alarm_threshold = float(anom_alarm_threshold)
+            except (ValueError, TypeError):
+                anom_alarm_threshold = None
+
         existing_anomaly = db.scalar(
             select(ModelVersion).where(
                 ModelVersion.bundle_version == model_version_str,
@@ -281,7 +297,7 @@ def register_model_bundle(
             anom_mv.input_features = active_sensors
             anom_mv.horizon = None
             anom_mv.horizon_unit = None
-            anom_mv.decision_threshold = 0.50
+            anom_mv.decision_threshold = anom_alarm_threshold
             anom_mv.model_card_complete = True
             anom_mv.artifact_path = str(root)
             anom_mv.sha256_hash = bundle_hash
@@ -299,7 +315,7 @@ def register_model_bundle(
                 input_features=active_sensors,
                 horizon=None,
                 horizon_unit=None,
-                decision_threshold=0.50,
+                decision_threshold=anom_alarm_threshold,
                 is_active=activate,
                 model_card_complete=True,
                 artifact_path=str(root),
@@ -429,75 +445,75 @@ def seed_demo_engines(
     # Critical machine = engine 48 or 97 at the final cycle
     # Healthy machine = any other distinct engine at an early Excellent cycle
 
-    # Warning selection: widest warning window
-    chosen_warning_unit = None
-    chosen_warning_cutoff = None
-    max_warning_span = 0
-    for u in [77, 29, 70] + [x for x in available_units if x not in [77, 29, 70]]:
-        if u not in available_units:
-            continue
-        w_scores = scores_df[scores_df[unit_col] == u]
-        w_matches = w_scores[(w_scores[health_col] >= 51.0) & (w_scores[health_col] <= 70.0)]
-        if len(w_matches) > max_warning_span:
-            max_warning_span = len(w_matches)
-            chosen_warning_unit = u
-            chosen_warning_cutoff = 125 if 125 in w_matches[cycle_col].values else int(w_matches.iloc[len(w_matches) // 2][cycle_col])
+    # 1. Distinct engine selection per category (Healthy, Warning, Critical)
+    # Fleet requested: 2 Healthy (70, 97), 2 Warning (77, 29), 1 Critical (48)
+    real_demo_units = {29, 48, 70, 77, 97}
+    if real_demo_units.issubset(set(available_units)):
+        # Explicit deterministic 5-engine fleet for C-MAPSS FD001 demo:
+        # - Engine 70 @ cycle 35 (Healthy, HI = 99.95)
+        # - Engine 97 @ cycle 35 (Early Healthy, HI = 99.96)
+        # - Engine 77 @ cycle 125 (Warning, HI = 51.51)
+        # - Engine 29 @ cycle 125 (Warning near 60-65 health, HI = 63.36)
+        # - Engine 48 @ cycle 231 (Critical, HI = 0.75)
+        categories = {
+            "healthy_1": {"unit_id": 70, "cutoff_cycle": 35, "cluster": "healthy"},
+            "healthy_2": {"unit_id": 97, "cutoff_cycle": 35, "cluster": "healthy"},
+            "warning_1": {"unit_id": 77, "cutoff_cycle": 125, "cluster": "warning"},
+            "warning_2": {"unit_id": 29, "cutoff_cycle": 125, "cluster": "warning"},
+            "critical_1": {"unit_id": 48, "cutoff_cycle": 231, "cluster": "critical"},
+        }
+    else:
+        # Dynamic fallback for test fixtures (e.g. units 1, 2, 3)
+        chosen_warning_unit = None
+        chosen_warning_cutoff = None
+        max_warning_span = 0
+        for u in available_units:
+            w_scores = scores_df[scores_df[unit_col] == u]
+            w_matches = w_scores[(w_scores[health_col] >= 51.0) & (w_scores[health_col] <= 70.0)]
+            if len(w_matches) > max_warning_span:
+                max_warning_span = len(w_matches)
+                chosen_warning_unit = u
+                chosen_warning_cutoff = int(w_matches.iloc[len(w_matches) // 2][cycle_col])
 
-    if not chosen_warning_unit:
-        raise ValueError("Could not find an engine with Warning band (51 <= HI <= 70)")
+        if not chosen_warning_unit:
+            raise ValueError("Could not find an engine with Warning band (51 <= HI <= 70)")
 
-    # Critical selection: engine 48 or 97 at final cycle (fallback to any available engine for test fixtures)
-    chosen_critical_unit = None
-    chosen_critical_cutoff = None
-    for u in [48, 97] + [x for x in available_units if x not in [48, 97]]:
-        if u in available_units and u != chosen_warning_unit:
-            c_scores = scores_df[scores_df[unit_col] == u]
-            final_c = int(c_scores.iloc[-1][cycle_col])
-            final_hi = float(c_scores.iloc[-1][health_col])
-            if final_hi <= 30.0:
-                chosen_critical_unit = u
-                chosen_critical_cutoff = final_c
-                break
+        chosen_critical_unit = None
+        chosen_critical_cutoff = None
+        for u in available_units:
+            if u != chosen_warning_unit:
+                c_scores = scores_df[scores_df[unit_col] == u]
+                final_c = int(c_scores.iloc[-1][cycle_col])
+                final_hi = float(c_scores.iloc[-1][health_col])
+                if final_hi <= 30.0:
+                    chosen_critical_unit = u
+                    chosen_critical_cutoff = final_c
+                    break
 
-    if not chosen_critical_unit:
-        raise ValueError("Could not find an engine at final cycle with Critical band (HI <= 30)")
+        if not chosen_critical_unit:
+            raise ValueError("Could not find an engine at final cycle with Critical band (HI <= 30)")
 
-    # Healthy selection: any other distinct engine at an early Excellent cycle (HI >= 86.0 or >= 71.0)
-    chosen_healthy_unit = None
-    chosen_healthy_cutoff = None
-    for u in [70, 29, 97, 48, 77] + [x for x in available_units if x not in [70, 29, 97, 48, 77]]:
-        if u in available_units and u not in (chosen_warning_unit, chosen_critical_unit):
-            h_scores = scores_df[scores_df[unit_col] == u]
-            h_matches = h_scores[h_scores[health_col] >= 86.0]
-            if not h_matches.empty:
-                chosen_healthy_unit = u
-                cand_cycle = 35 if 35 in h_matches[cycle_col].values else int(h_matches.iloc[min(20, len(h_matches) - 1)][cycle_col])
-                chosen_healthy_cutoff = cand_cycle
-                break
-            h_matches_71 = h_scores[h_scores[health_col] >= 71.0]
-            if not h_matches_71.empty:
-                chosen_healthy_unit = u
-                chosen_healthy_cutoff = int(h_matches_71.iloc[0][cycle_col])
-                break
+        chosen_healthy_unit = None
+        chosen_healthy_cutoff = None
+        for u in available_units:
+            if u not in (chosen_warning_unit, chosen_critical_unit):
+                h_scores = scores_df[scores_df[unit_col] == u]
+                h_matches = h_scores[h_scores[health_col] >= 71.0]
+                if not h_matches.empty:
+                    chosen_healthy_unit = u
+                    chosen_healthy_cutoff = int(h_matches.iloc[0][cycle_col])
+                    break
 
-    if not chosen_healthy_unit:
-        raise ValueError("Could not find a distinct Healthy demo engine with HI >= 71")
+        if not chosen_healthy_unit:
+            raise ValueError("Could not find a distinct Healthy demo engine with HI >= 71")
 
-    categories = {
-        "warning": {"unit_id": chosen_warning_unit, "cutoff_cycle": chosen_warning_cutoff},
-        "critical": {"unit_id": chosen_critical_unit, "cutoff_cycle": chosen_critical_cutoff},
-        "healthy": {"unit_id": chosen_healthy_unit, "cutoff_cycle": chosen_healthy_cutoff},
-    }
+        categories = {
+            "warning": {"unit_id": chosen_warning_unit, "cutoff_cycle": chosen_warning_cutoff, "cluster": "warning"},
+            "critical": {"unit_id": chosen_critical_unit, "cutoff_cycle": chosen_critical_cutoff, "cluster": "critical"},
+            "healthy": {"unit_id": chosen_healthy_unit, "cutoff_cycle": chosen_healthy_cutoff, "cluster": "healthy"},
+        }
 
-    # Also register the remaining demo units so that all 5 held-out demo engines are seeded
-    for u in available_units:
-        if u not in [chosen_warning_unit, chosen_critical_unit, chosen_healthy_unit]:
-            sub = scores_df[scores_df[unit_col] == u]
-            categories[f"unit_{u}"] = {"unit_id": u, "cutoff_cycle": int(sub.iloc[-1][cycle_col])}
-    logger.info("Distinct demo selection: Healthy (Unit %s, Cycle %s), Warning (Unit %s, Cycle %s), Critical (Unit %s, Cycle %s)",
-                categories["healthy"]["unit_id"], categories["healthy"]["cutoff_cycle"],
-                categories["warning"]["unit_id"], categories["warning"]["cutoff_cycle"],
-                categories["critical"]["unit_id"], categories["critical"]["cutoff_cycle"])
+    logger.info("Demo selection configured with %d machines: %s", len(categories), list(categories.keys()))
 
     # 2. Try loading ModelBundle for live trajectory scoring
     from app.ml.pdm_inference import ModelBundle, score_trajectory
@@ -543,10 +559,60 @@ def seed_demo_engines(
 
         anomaly_weight = float(active_health_cfg.anomaly_weight)
 
+        # 1. Ensure canonical Dataset record exists with real column mapping hash (PRD FR-6, Requirement 4)
+        adapter = CmapssFd001Adapter()
+        canonical_cols = adapter.canonical_columns
+        mapping = {col: col for col in canonical_cols}
+        real_mapping_hash = adapter.compute_mapping_hash(mapping)
+
+        demo_dataset = db.scalar(select(Dataset).where(Dataset.slug == "cmapss-fd001-demo"))
+        if not demo_dataset:
+            demo_dataset = Dataset(
+                id=uuid.uuid4(),
+                name="NASA C-MAPSS FD001 Demo",
+                slug="cmapss-fd001-demo",
+                description="Demo held-out test engines from NASA C-MAPSS FD001 simulated turbofan dataset",
+                version="1.0",
+                filename="demo_units.csv",
+                file_sha256=compute_sha256(demo_units_path),
+                schema_mapping=mapping,
+                schema_mapping_hash=real_mapping_hash,
+                data_origin="simulated",
+                is_demo=True,
+                adapter_key="cmapss_fd001",
+                status="ingested",
+            )
+            db.add(demo_dataset)
+            db.flush()
+        else:
+            demo_dataset.schema_mapping = mapping
+            demo_dataset.schema_mapping_hash = real_mapping_hash
+            db.flush()
+
+        # Query active AlertRule for high_failure_risk
+        rule_high_fail = db.scalar(
+            select(AlertRule).where(
+                AlertRule.alert_type == "high_failure_risk",
+                AlertRule.is_active.is_(True),
+            )
+        )
+        high_fail_thresh = (
+            float(rule_high_fail.failure_probability_threshold)
+            if rule_high_fail and rule_high_fail.failure_probability_threshold is not None
+            else 0.50
+        )
+        fail_consecutive_n = (
+            int(rule_high_fail.consecutive_cycles)
+            if rule_high_fail and rule_high_fail.consecutive_cycles is not None
+            else 3
+        )
+        fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_HIGH_FAILURE_RISK"
+
         results = {}
         for category, info in categories.items():
             u_id = info["unit_id"]
             cutoff = info["cutoff_cycle"]
+            cluster = info.get("cluster", "healthy" if "healthy" in category else ("warning" if "warning" in category else "critical"))
             machine_code = f"ENGINE-{u_id:03d}"
 
             # Engine raw rows up to cutoff
@@ -575,19 +641,19 @@ def seed_demo_engines(
             else:
                 score_data = ref_slice.iloc[-1].to_dict()
 
-            # Operational status is strictly 'active' (maintenance/archived are operational states)
+            # Operational status is strictly 'active'
             op_status = "active"
-            health_band = "Healthy" if category == "healthy" else ("Warning" if category == "warning" else "Critical")
+            latest_hi = float(score_data[health_col])
+            health_band = "Healthy" if cluster == "healthy" else ("Warning" if cluster == "warning" else "Critical")
 
-            clean_name = f"Turbofan Engine {u_id:03d}"
-            if category in ("healthy", "warning", "critical"):
-                clean_name += f" ({category.capitalize()} Demo)"
+            clean_name = f"Turbofan Engine {u_id:03d} ({cluster.capitalize()} Demo)"
 
             # Check or create Machine
             machine = db.scalar(select(Machine).where(Machine.machine_code == machine_code))
             if not machine:
                 machine = Machine(
                     id=uuid.uuid4(),
+                    dataset_id=demo_dataset.id,
                     machine_code=machine_code,
                     name=clean_name,
                     machine_type="Simulated Turbofan Engine (C-MAPSS FD001)",
@@ -595,20 +661,21 @@ def seed_demo_engines(
                     notes="Held-out test engine from NASA C-MAPSS FD001 dataset",
                     source_unit_id=u_id,
                     operational_status=op_status,
-                    health_indicator=float(score_data[health_col]),
+                    health_indicator=latest_hi,
                     health_band=health_band,
                     is_demo=True,
-                    demo_cluster=category,
+                    demo_cluster=cluster,
                 )
                 db.add(machine)
                 db.flush()
             else:
+                machine.dataset_id = demo_dataset.id
                 machine.name = clean_name
                 machine.operational_status = op_status
-                machine.health_indicator = float(score_data[health_col])
+                machine.health_indicator = latest_hi
                 machine.health_band = health_band
                 machine.is_demo = True
-                machine.demo_cluster = category
+                machine.demo_cluster = cluster
 
             # Delete old data for this machine (respecting FK dependency order)
             db.execute(Alert.__table__.delete().where(Alert.machine_id == machine.id))
@@ -623,7 +690,7 @@ def seed_demo_engines(
                 readings_to_add.append(
                     SensorReading(
                         machine_id=machine.id,
-                        dataset_id=None,
+                        dataset_id=demo_dataset.id,
                         cycle_index=int(r[cycle_col]),
                         op_setting_1=float(r["op_setting_1"]) if "op_setting_1" in r else None,
                         op_setting_2=float(r["op_setting_2"]) if "op_setting_2" in r else None,
@@ -653,7 +720,7 @@ def seed_demo_engines(
                 )
             db.add_all(readings_to_add)
 
-            # Insert latest prediction with complete lineage
+            # Insert latest prediction with complete lineage from Dataset row (Requirement 4)
             fail_prob = float(score_data.get("failure_probability", 0.0))
             anom_score = float(score_data.get("anomaly_score", 0.0))
             d_thresh = float(active_model.decision_threshold or 0.10)
@@ -663,8 +730,8 @@ def seed_demo_engines(
                 machine_id=machine.id,
                 cycle=cutoff,
                 as_of_index=cutoff,
-                dataset_version="cmapss-fd001-heldout",
-                schema_mapping_hash="fd001-canonical-sha256",
+                dataset_version=demo_dataset.version,
+                schema_mapping_hash=demo_dataset.schema_mapping_hash,
                 feature_config_version=active_model.feature_config_version,
                 preprocessing_version=active_model.preprocessing_version,
                 failure_model_version_id=active_model.id,
@@ -674,7 +741,7 @@ def seed_demo_engines(
                 horizon_unit=active_model.horizon_unit or "cycles",
                 failure_probability=fail_prob,
                 risk_level=risk_lvl,
-                health_indicator=float(score_data[health_col]),
+                health_indicator=latest_hi,
                 health_band=health_band,
                 penalty_risk=round(100.0 * fail_prob, 2),
                 penalty_anomaly=round(100.0 * (1.0 - fail_prob) * anomaly_weight * anom_score, 2),
@@ -687,12 +754,56 @@ def seed_demo_engines(
             )
             db.add(pred)
 
+            # Replay alert rules across trajectory in data order (Requirement 3)
+            high_fail_streak = 0
+            trigger_c = None
+            for _, row_item in ref_slice.iterrows():
+                c_idx = int(row_item[cycle_col])
+                c_fail = float(row_item.get("failure_probability", 0.0))
+                if c_fail >= high_fail_thresh:
+                    high_fail_streak += 1
+                    if high_fail_streak == fail_consecutive_n and trigger_c is None:
+                        trigger_c = c_idx
+                else:
+                    high_fail_streak = 0
+
+            # Leave Critical machine's alert OPEN with recommendation snapshot
+            if cluster == "critical" or category == "critical":
+                rec = recommend_maintenance(
+                    failure_probability=fail_prob,
+                    anomaly_flag=True,
+                    health_indicator=latest_hi,
+                    data_quality_status=score_data.get("data_quality_status", "DATA_OK"),
+                    decision_threshold=active_model.decision_threshold or 0.10,
+                )
+                rec_snapshot = f"{rec['label']}: {rec['category']} - " + "; ".join(rec["reasons"]) + f". {rec['disclaimer']}"
+                open_alert = Alert(
+                    id=uuid.uuid4(),
+                    machine_id=machine.id,
+                    alert_type="high_failure_risk",
+                    status="open",
+                    severity="critical",
+                    trigger_cycle=trigger_c or cutoff,
+                    trigger_score=round(fail_prob, 4),
+                    recommendation_text=rec_snapshot,
+                    recommendation_rule_id=fail_rule_id,
+                )
+                db.add(open_alert)
+
             results[category] = {
                 "machine_code": machine_code,
                 "cutoff_cycle": cutoff,
                 "readings_count": len(readings_to_add),
-                "health_indicator": float(score_data[health_col]),
+                "health_indicator": latest_hi,
             }
+
+        # Ensure canonical category aliases exist for backwards compatibility with tests
+        if "healthy_1" in results and "healthy" not in results:
+            results["healthy"] = results["healthy_1"]
+        if "warning_1" in results and "warning" not in results:
+            results["warning"] = results["warning_1"]
+        if "critical_1" in results and "critical" not in results:
+            results["critical"] = results["critical_1"]
 
         db.commit()
         return results

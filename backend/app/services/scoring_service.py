@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import numpy as np
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -73,14 +72,18 @@ def score_machine_trajectory(
     )
     anomaly_model_version_id = active_anomaly_model.id if active_anomaly_model else None
 
-    # Fetch dataset lineage
-    dataset_version = "cmapss-fd001"
-    schema_mapping_hash = "fd001-canonical-sha256"
+    # Fetch dataset lineage from dataset row or canonical adapter (no literal strings)
+    from app.adapters.cmapss_fd001 import CmapssFd001Adapter
+    dataset_version = "1.0"
+    schema_mapping_hash = None
     if machine.dataset_id:
         dataset = db.get(Dataset, machine.dataset_id)
         if dataset:
-            dataset_version = dataset.version or dataset_version
-            schema_mapping_hash = dataset.schema_mapping_hash or schema_mapping_hash
+            dataset_version = dataset.version
+            schema_mapping_hash = dataset.schema_mapping_hash
+    if not schema_mapping_hash:
+        mapping = {col: col for col in CmapssFd001Adapter.canonical_columns}
+        schema_mapping_hash = CmapssFd001Adapter.compute_mapping_hash(mapping)
 
     # 2. Load model bundle
     artifact_path = Path(bundle_path or active_model.artifact_path)

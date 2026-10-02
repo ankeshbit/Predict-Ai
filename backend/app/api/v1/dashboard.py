@@ -3,7 +3,8 @@ Fleet Dashboard API Router.
 PRD §14.7: Fleet summary, priority at-risk machines, recent anomalies, alerts, and risk distribution.
 """
 
-from typing import List, Optional
+from typing import List
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
