@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { Machine, Alert, MaintenanceRecord, Dataset, ModelVersion } from './types';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import type { Machine, Alert, MaintenanceRecord, Dataset } from './types';
 import { AppLayout } from './components/layout/AppLayout';
 import type { NavPage } from './components/layout/Sidebar';
 import { LoginPage } from './pages/LoginPage';
@@ -9,11 +10,9 @@ import { FleetPage } from './pages/FleetPage';
 import { MachineDetailPage } from './pages/MachineDetailPage';
 import { DatasetsPage } from './pages/DatasetsPage';
 import { DatasetSchemaMappingPage } from './pages/DatasetSchemaMappingPage';
-import { PredictionsPage } from './pages/PredictionsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { ModelPerformancePage } from './pages/ModelPerformancePage';
-import { ModelRegistryPage } from './pages/ModelRegistryPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 import {
@@ -24,7 +23,6 @@ import {
   useDatasets,
   useMachines,
   useMaintenanceRecords,
-  useModels,
   useResetDemo,
   useResolveAlert,
   useCreateMaintenance,
@@ -141,9 +139,28 @@ export function App() {
   const { data: backendAlertsData } = useAlerts();
   const { data: backendMaintData } = useMaintenanceRecords();
   const { data: backendDatasetsData } = useDatasets();
-  const { data: backendModelsData } = useModels();
 
-  const [currentPage, setCurrentPage] = useState<NavPage>('overview');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getPageFromPath = (path: string): NavPage => {
+    if (path.startsWith('/fleet')) return 'fleet';
+    if (path.startsWith('/machines')) return 'machines';
+    if (path.startsWith('/datasets')) return 'datasets';
+    if (path.startsWith('/alerts')) return 'alerts';
+    if (path.startsWith('/maintenance')) return 'maintenance';
+    if (path.startsWith('/performance') || path.startsWith('/model-performance')) return 'model-performance';
+    if (path.startsWith('/settings')) return 'settings';
+    return 'overview';
+  };
+
+  const currentPage = getPageFromPath(location.pathname);
+
+  const handleNavigate = (page: NavPage) => {
+    if (page === 'overview') navigate('/');
+    else navigate(`/${page}`);
+  };
+
   const [selectedMachineId, setSelectedMachineId] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [schemaMappingDatasetId, setSchemaMappingDatasetId] = useState<string>('');
@@ -173,29 +190,6 @@ export function App() {
     unitCount: d.unit_count || 100,
     uploadedBy: 'admin',
     uploadedAt: d.created_at,
-  }));
-
-  const models: ModelVersion[] = (backendModelsData || []).map((m) => ({
-    id: m.id,
-    name: `${m.model_type} (${m.bundle_version})`,
-    version: m.bundle_version,
-    task: m.task as any,
-    modelType: m.model_type,
-    adapterKey: m.adapter_key,
-    status: m.is_active ? 'active' : 'registered',
-    horizon: m.horizon ?? 30,
-    horizonUnit: m.horizon_unit ?? 'cycles',
-    decisionThreshold: m.decision_threshold ?? 0.5,
-    trainingDataset: 'NASA C-MAPSS FD001 Train',
-    trainingDate: m.created_at,
-    gitCommit: 'main',
-    modelCard: {
-      targetDefinition: 'Binary failure indicator within H cycles',
-      calibrationInfo: 'Platt scaling / Sigmoid calibrated',
-      featuresUsed: m.input_features || [],
-      intendedUse: 'Simulated turbofan engine degradation monitoring',
-      limitations: 'Trained exclusively on C-MAPSS FD001 single-condition simulated data',
-    },
   }));
 
   // Resolve selected machine
@@ -263,16 +257,16 @@ export function App() {
 
   const handleSelectMachine = (machineId: string) => {
     setSelectedMachineId(machineId);
-    setCurrentPage('machines');
+    navigate('/machines');
   };
 
   const handleViewSchemaMapping = (datasetId: string) => {
     setSchemaMappingDatasetId(datasetId);
-    setCurrentPage('datasets');
+    navigate('/datasets');
   };
 
   const handleIngestSuccess = () => {
-    setCurrentPage('overview');
+    navigate('/');
   };
 
   // Route Guard: Loading
@@ -295,111 +289,133 @@ export function App() {
   return (
     <AppLayout
       currentPage={currentPage}
-      onNavigate={setCurrentPage}
+      onNavigate={handleNavigate}
       currentUser={currentUser}
       openAlertCount={openAlertsCount}
       onResetDemo={handleResetDemo}
       onLogout={handleLogout}
     >
-      {/* Overview Dashboard */}
-      {currentPage === 'overview' && (
-        <OverviewDashboardPage
-          machines={machines}
-          alerts={alerts}
-          onSelectMachine={handleSelectMachine}
-          onOpenAlerts={() => setCurrentPage('alerts')}
-          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <OverviewDashboardPage
+              machines={machines}
+              alerts={alerts}
+              onSelectMachine={handleSelectMachine}
+              onOpenAlerts={() => navigate('/alerts')}
+              onOpenOnboarding={() => setIsOnboardingOpen(true)}
+            />
+          }
         />
-      )}
-
-      {/* Fleet Inventory */}
-      {currentPage === 'fleet' && (
-        <FleetPage
-          machines={machines}
-          onSelectMachine={handleSelectMachine}
+        <Route
+          path="/overview"
+          element={
+            <OverviewDashboardPage
+              machines={machines}
+              alerts={alerts}
+              onSelectMachine={handleSelectMachine}
+              onOpenAlerts={() => navigate('/alerts')}
+              onOpenOnboarding={() => setIsOnboardingOpen(true)}
+            />
+          }
         />
-      )}
 
-      {/* Machine Details */}
-      {currentPage === 'machines' && selectedMachine && (
-        <MachineDetailPage
-          machine={selectedMachine}
-          alerts={alerts}
-          maintenanceRecords={maintenanceRecords.filter((r) => r.machineId === selectedMachine.id)}
-          sensorHistory={sensorHistory}
-          onBack={() => setCurrentPage('fleet')}
-          currentUserRole={currentUser.role}
-          onAcknowledgeAlert={handleAcknowledgeAlert}
-          onRecordMaintenance={handleRecordMaintenance}
+        <Route
+          path="/fleet"
+          element={
+            <FleetPage
+              machines={machines}
+              onSelectMachine={handleSelectMachine}
+            />
+          }
         />
-      )}
 
-      {/* Datasets Management */}
-      {currentPage === 'datasets' && (
-        schemaMappingDatasetId ? (
-          <DatasetSchemaMappingPage
-            initialDatasetId={schemaMappingDatasetId}
-            onBack={() => setSchemaMappingDatasetId('')}
-            onIngestSuccess={handleIngestSuccess}
-          />
-        ) : (
-          <DatasetsPage
-            datasets={datasets}
-            currentUserRole={currentUser.role}
-            onOpenUploadWizard={() => {
-              const firstDs = datasets[0]?.id || 'cmapss-fd001';
-              setSchemaMappingDatasetId(firstDs);
-            }}
-            onViewSchemaMapping={handleViewSchemaMapping}
-          />
-        )
-      )}
-
-      {/* Predictions & Inference */}
-      {currentPage === 'predictions' && (
-        <PredictionsPage
-          machines={machines}
-          currentUserRole={currentUser.role}
-          onSelectMachine={handleSelectMachine}
+        <Route
+          path="/machines"
+          element={
+            selectedMachine ? (
+              <MachineDetailPage
+                machine={selectedMachine}
+                alerts={alerts}
+                maintenanceRecords={maintenanceRecords.filter((r) => r.machineId === selectedMachine.id)}
+                sensorHistory={sensorHistory}
+                onBack={() => navigate('/fleet')}
+                currentUserRole={currentUser.role}
+                onAcknowledgeAlert={handleAcknowledgeAlert}
+                onRecordMaintenance={handleRecordMaintenance}
+              />
+            ) : (
+              <FleetPage
+                machines={machines}
+                onSelectMachine={handleSelectMachine}
+              />
+            )
+          }
         />
-      )}
 
-      {/* Operational Alerts */}
-      {currentPage === 'alerts' && (
-        <AlertsPage
-          alerts={alerts}
-          currentUserRole={currentUser.role}
-          onAcknowledgeAlert={handleAcknowledgeAlert}
-          onResolveAlert={handleResolveAlert}
-          onSelectMachine={handleSelectMachine}
+        <Route
+          path="/datasets"
+          element={
+            schemaMappingDatasetId ? (
+              <DatasetSchemaMappingPage
+                initialDatasetId={schemaMappingDatasetId}
+                onBack={() => setSchemaMappingDatasetId('')}
+                onIngestSuccess={handleIngestSuccess}
+              />
+            ) : (
+              <DatasetsPage
+                datasets={datasets}
+                currentUserRole={currentUser.role}
+                onOpenUploadWizard={() => {
+                  const firstDs = datasets[0]?.id || 'cmapss-fd001';
+                  setSchemaMappingDatasetId(firstDs);
+                }}
+                onViewSchemaMapping={handleViewSchemaMapping}
+              />
+            )
+          }
         />
-      )}
 
-      {/* Maintenance Workflow */}
-      {currentPage === 'maintenance' && (
-        <MaintenancePage
-          records={maintenanceRecords}
-          onSelectMachine={handleSelectMachine}
+        <Route
+          path="/alerts"
+          element={
+            <AlertsPage
+              alerts={alerts}
+              currentUserRole={currentUser.role}
+              onAcknowledgeAlert={handleAcknowledgeAlert}
+              onResolveAlert={handleResolveAlert}
+              onSelectMachine={handleSelectMachine}
+            />
+          }
         />
-      )}
 
-      {/* Model Performance */}
-      {currentPage === 'model-performance' && (
-        <ModelPerformancePage />
-      )}
-
-      {/* Model Registry */}
-      {currentPage === 'models' && (
-        <ModelRegistryPage
-          models={models}
-          onViewModelPerformance={() => setCurrentPage('model-performance')}
+        <Route
+          path="/maintenance"
+          element={
+            <MaintenancePage
+              records={maintenanceRecords}
+              onSelectMachine={handleSelectMachine}
+            />
+          }
         />
-      )}
 
-      {/* System Settings */}
-      {currentPage === 'settings' && (
-        <SettingsPage currentUserRole={currentUser.role} />
-      )}
+        <Route
+          path="/model-performance"
+          element={<ModelPerformancePage />}
+        />
+        <Route
+          path="/performance"
+          element={<ModelPerformancePage />}
+        />
+
+        <Route
+          path="/settings"
+          element={<SettingsPage currentUserRole={currentUser.role} />}
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
 
       {/* Onboarding Tour Modal */}
       <OnboardingModal

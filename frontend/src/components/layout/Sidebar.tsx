@@ -4,11 +4,9 @@ import {
   Layers,
   Cpu,
   Database,
-  LineChart,
   BellRing,
   Wrench,
   Gauge,
-  Boxes,
   Settings,
 } from 'lucide-react';
 
@@ -17,11 +15,9 @@ export type NavPage =
   | 'fleet'
   | 'machines'
   | 'datasets'
-  | 'predictions'
   | 'alerts'
   | 'maintenance'
   | 'model-performance'
-  | 'models'
   | 'settings';
 
 interface SidebarProps {
@@ -55,10 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       group: 'ANALYZE',
       items: [
-        { id: 'predictions', label: 'Predictions', icon: <LineChart className="w-4 h-4" /> },
         { id: 'datasets', label: 'Datasets', icon: <Database className="w-4 h-4" /> },
         { id: 'model-performance', label: 'Model Performance', icon: <Gauge className="w-4 h-4" /> },
-        { id: 'models', label: 'Models', icon: <Boxes className="w-4 h-4" /> },
       ],
     },
     {

@@ -7,6 +7,7 @@ Tables are cleanly truncated between tests.
 
 import json
 import os
+os.environ["TESTING"] = "1"
 import uuid
 from pathlib import Path
 
@@ -193,7 +194,7 @@ def mock_valid_bundle(tmp_path):
         "meta": {"model_version": "cmapss-fd001-h30-test"},
         "internal_test": {
             "confusion_matrix": {"tn": 100, "fp": 5, "fn": 4, "tp": 20},
-            "calibration": {"brier_calibrated": 0.04},
+            "calibration": {"brier_calibrated": 0.04, "ece_calibrated": 0.015},
             "roc": {"fpr": [0.0, 0.1, 1.0], "tpr": [0.0, 0.8, 1.0]},
             "precision_recall": {"precision": [1.0, 0.8, 0.5], "recall": [0.0, 0.8, 1.0]},
         },

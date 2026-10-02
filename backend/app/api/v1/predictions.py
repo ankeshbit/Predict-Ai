@@ -71,6 +71,28 @@ def _to_prediction_response(p: Prediction) -> PredictionResponse:
     )
 
 
+from typing import List, Optional
+
+@router.get("/predictions", response_model=List[PredictionResponse])
+def list_predictions(
+    machine_id: Optional[uuid.UUID] = None,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Retrieves list of predictions across machines with lineage and breakdown points."""
+    stmt = select(Prediction)
+    if machine_id:
+        stmt = stmt.where(Prediction.machine_id == machine_id)
+    preds = db.scalars(
+        stmt.order_by(Prediction.predicted_at.desc(), Prediction.cycle.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return [_to_prediction_response(p) for p in preds]
+
+
 @router.get("/predictions/{prediction_id}", response_model=PredictionResponse)
 def get_prediction(
     prediction_id: uuid.UUID,

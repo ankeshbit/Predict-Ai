@@ -31,11 +31,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     fleet: 'Fleet Inventory',
     machines: 'Machine Detail',
     datasets: 'Dataset Management',
-    predictions: 'Scoring & Predictions',
     alerts: 'Operational Alerts',
     maintenance: 'Maintenance Records',
     'model-performance': 'Model Performance',
-    models: 'Model Registry',
     settings: 'System Settings',
   };
 

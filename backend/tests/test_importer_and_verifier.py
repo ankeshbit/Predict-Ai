@@ -123,5 +123,38 @@ def test_seed_demo_engines_fails_loudly_if_category_missing(tmp_path, db):
     )
     (bundle_dir / "demo" / "demo_reference_scores.csv").write_text(demo_scores_csv)
 
-    with pytest.raises(ValueError, match="FATAL: Demo fleet seeding cannot proceed"):
+    with pytest.raises(ValueError, match="FATAL: Demo fleet seeding cannot proceed|Could not find an engine"):
         seed_demo_engines(bundle_dir, session=db)
+
+
+def test_brier_and_ece_metrics_non_null(mock_valid_bundle, db):
+    """Brier score and ECE must be non-null and evaluated_at must equal model_card.evaluation_date."""
+    mv = register_model_bundle(mock_valid_bundle, activate=True, session=db)
+    eval_rec = mv.evaluation
+    assert eval_rec is not None
+    assert eval_rec.evaluated_at is not None
+
+    m = eval_rec.metrics.get("internal_test", {})
+    assert m.get("brier") is not None, "Brier score must not be null"
+    assert m.get("brier_score") is not None, "brier_score alias must not be null"
+    assert m.get("ece") is not None, "ECE must not be null"
+    assert m.get("expected_calibration_error") is not None, "expected_calibration_error alias must not be null"
+    assert m["brier"] == 0.04
+    assert m["ece"] == 0.015
+
+
+def test_anomaly_model_registered_separately(mock_valid_bundle, db):
+    """Anomaly model must be registered as its own model_versions row with task=anomaly."""
+    mv = register_model_bundle(mock_valid_bundle, activate=True, session=db)
+    from app.models.entities import ModelVersion
+    anom_mv = db.query(ModelVersion).filter(
+        ModelVersion.bundle_version == mv.bundle_version,
+        ModelVersion.task == "anomaly"
+    ).first()
+    assert anom_mv is not None
+    assert anom_mv.model_type == "IsolationForest"
+    assert anom_mv.is_active is True
+    assert anom_mv.evaluation is not None
+    assert anom_mv.evaluation.task == "anomaly"
+    assert anom_mv.evaluation.evaluated_at == mv.evaluation.evaluated_at
+

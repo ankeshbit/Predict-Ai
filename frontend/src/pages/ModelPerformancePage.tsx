@@ -239,8 +239,8 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </button>
       </div>
 
-      {/* Primary Analytical Metrics Strip: PR-AUC, Precision, Recall, F1, Brier Score, ROC-AUC */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      {/* Primary Analytical Metrics Strip: PR-AUC, Precision, Recall, F1, Brier Score, ECE, ROC-AUC */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
         <div className="p-3 rounded-lg bg-[#111620] border border-emerald-900/40 bg-emerald-950/10">
           <div className="text-[10px] text-emerald-400 font-mono uppercase font-semibold">1. PR-AUC (Primary)</div>
           <div className="text-xl font-bold font-mono text-emerald-400 mt-1">{metrics.prAuc}</div>
@@ -266,13 +266,19 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </div>
 
         <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-teal-400 font-mono uppercase font-semibold">5. Brier (Calibration)</div>
+          <div className="text-[10px] text-teal-400 font-mono uppercase font-semibold">5. Brier Score</div>
           <div className="text-xl font-bold font-mono text-teal-400 mt-1">{metrics.brierScore}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">ECE: {metrics.ece}</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Probability calibration</div>
         </div>
 
         <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-blue-400 font-mono uppercase font-semibold">6. ROC-AUC</div>
+          <div className="text-[10px] text-teal-400 font-mono uppercase font-semibold">6. ECE</div>
+          <div className="text-xl font-bold font-mono text-teal-400 mt-1">{metrics.ece}</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Expected Calib. Error</div>
+        </div>
+
+        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
+          <div className="text-[10px] text-blue-400 font-mono uppercase font-semibold">7. ROC-AUC</div>
           <div className="text-xl font-bold font-mono text-blue-400 mt-1">{metrics.rocAuc}</div>
           <div className="text-[10px] font-mono text-slate-500 mt-0.5">Discrimination</div>
         </div>
@@ -332,6 +338,63 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Folded Model Registry & Production Governance Section */}
+      <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#1f2838]">
+          <div>
+            <h4 className="font-semibold text-slate-100 font-mono text-xs">Model Architecture &amp; Governance (PRD §FR-16)</h4>
+            <p className="text-[11px] text-slate-400">
+              Read-only registry metadata for currently active production bundles &bull; Strict separation of training and inference.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400 bg-[#0d121b] px-2.5 py-1 rounded border border-[#1e2738]">
+            <span>Runtime:</span>
+            <span className="text-emerald-400 font-semibold">Python 3.12</span>
+            <span>&bull;</span>
+            <span className="text-slate-300">FastAPI</span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-[#1f2838] text-slate-500 text-[11px] uppercase tracking-wider">
+                <th className="pb-2">Task</th>
+                <th className="pb-2">Model Type</th>
+                <th className="pb-2">Bundle Version</th>
+                <th className="pb-2">Horizon</th>
+                <th className="pb-2">Decision Thresh</th>
+                <th className="pb-2">SHA-256 Digest</th>
+                <th className="pb-2 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#18212e]">
+              {activeModels.map((m) => (
+                <tr key={m.id} className="text-slate-300 hover:bg-[#141c2b] transition-colors">
+                  <td className="py-2.5 font-semibold text-slate-200">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-[#1a2333] border border-[#2b384f] text-blue-300 uppercase">
+                      {m.task}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-slate-300">{m.modelType}</td>
+                  <td className="py-2.5 text-slate-400 truncate max-w-xs">{m.version}</td>
+                  <td className="py-2.5 text-blue-400">{m.task === 'failure_risk' ? 'H = 30 cycles' : 'N/A'}</td>
+                  <td className="py-2.5 text-slate-300">{m.task === 'failure_risk' ? '0.10' : '0.50'}</td>
+                  <td className="py-2.5 text-slate-500 truncate max-w-[120px]" title={(m as any).sha256}>
+                    {(m as any).sha256 ? `${(m as any).sha256.slice(0, 12)}...` : '—'}
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/50 text-emerald-400 border border-emerald-800/60">
+                      Active
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

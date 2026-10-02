@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -108,11 +109,38 @@ def register_model_bundle(
     eval_date = model_card.get("evaluation_date")
     if not eval_date:
         raise ValueError(f"Missing required 'evaluation_date' in model card: {model_card_path}")
+    eval_dt = datetime.fromisoformat(eval_date.replace("Z", "+00:00"))
+
     training_timestamp = model_card.get("training_timestamp")
     if not training_timestamp:
         raise ValueError(f"Missing required 'training_timestamp' in model card: {model_card_path}")
 
     metrics_data = model_card.get("metrics", {})
+    # Ensure Brier Score and ECE are populated from curves/metrics for all evaluation sets
+    for set_key, set_metrics in metrics_data.items():
+        if isinstance(set_metrics, dict):
+            c_set = curves.get(set_key, {})
+            m_at_thresh = c_set.get("metrics_at_threshold", {})
+            cal = c_set.get("calibration", {})
+            brier_val = (
+                set_metrics.get("brier_score")
+                or set_metrics.get("brier")
+                or m_at_thresh.get("brier")
+                or cal.get("brier_calibrated")
+            )
+            ece_val = (
+                set_metrics.get("expected_calibration_error")
+                or set_metrics.get("ece")
+                or m_at_thresh.get("ece")
+                or cal.get("ece_calibrated")
+            )
+            if brier_val is not None:
+                set_metrics["brier"] = brier_val
+                set_metrics["brier_score"] = brier_val
+            if ece_val is not None:
+                set_metrics["ece"] = ece_val
+                set_metrics["expected_calibration_error"] = ece_val
+
     limitations_data = model_card.get("limitations", [])
 
     # Methodology string representation
@@ -138,7 +166,10 @@ def register_model_bundle(
     def _execute_import(db: Session) -> ModelVersion:
         # Check if already registered
         existing = db.scalar(
-            select(ModelVersion).where(ModelVersion.bundle_version == model_version_str)
+            select(ModelVersion).where(
+                ModelVersion.bundle_version == model_version_str,
+                ModelVersion.task == "failure_risk",
+            )
         )
 
         if activate:
@@ -153,6 +184,12 @@ def register_model_bundle(
                 .values(is_active=False)
             )
 
+        py_ver = (
+            model_card.get("library_versions", {}).get("python")
+            or metadata.get("library_versions", {}).get("python")
+            or "3.12.13"
+        )
+
         if existing:
             mv = existing
             mv.model_type = selected_model
@@ -163,19 +200,9 @@ def register_model_bundle(
             mv.model_card_complete = True
             mv.artifact_path = str(root)
             mv.sha256_hash = bundle_hash
-            py_ver = (
-                model_card.get("library_versions", {}).get("python")
-                or metadata.get("library_versions", {}).get("python")
-                or "3.12.13"
-            )
             mv.python_version = py_ver
             mv.is_active = activate
         else:
-            py_ver = (
-                model_card.get("library_versions", {}).get("python")
-                or metadata.get("library_versions", {}).get("python")
-                or "3.12.13"
-            )
             mv = ModelVersion(
                 id=uuid.uuid4(),
                 bundle_version=model_version_str,
@@ -197,7 +224,7 @@ def register_model_bundle(
             db.add(mv)
             db.flush()
 
-        # Update or create ModelEvaluation
+        # Update or create ModelEvaluation for failure_risk
         existing_eval = db.scalar(
             select(ModelEvaluation).where(ModelEvaluation.model_version_id == mv.id)
         )
@@ -210,6 +237,7 @@ def register_model_bundle(
             me.feature_importance = features_list
             me.methodology = methodology_text
             me.limitations = limitations_data
+            me.evaluated_at = eval_dt
         else:
             me = ModelEvaluation(
                 id=uuid.uuid4(),
@@ -222,12 +250,131 @@ def register_model_bundle(
                 feature_importance=features_list,
                 methodology=methodology_text,
                 limitations=limitations_data,
+                evaluated_at=eval_dt,
             )
             db.add(me)
 
+        # Register Anomaly Model as its own model_versions row (task=anomaly)
+        anomaly_proxy = metadata.get("metrics", {}).get("anomaly_detection_proxy", {})
+        anomaly_flag_rates = metadata.get("metrics", {}).get("anomaly_flag_rates_healthy_rows", {})
+
+        if activate:
+            db.execute(
+                update(ModelVersion)
+                .where(
+                    ModelVersion.adapter_key == "cmapss_fd001",
+                    ModelVersion.task == "anomaly",
+                    ModelVersion.is_active.is_(True),
+                )
+                .values(is_active=False)
+            )
+
+        existing_anomaly = db.scalar(
+            select(ModelVersion).where(
+                ModelVersion.bundle_version == model_version_str,
+                ModelVersion.task == "anomaly",
+            )
+        )
+        if existing_anomaly:
+            anom_mv = existing_anomaly
+            anom_mv.model_type = "IsolationForest"
+            anom_mv.input_features = active_sensors
+            anom_mv.horizon = None
+            anom_mv.horizon_unit = None
+            anom_mv.decision_threshold = 0.50
+            anom_mv.model_card_complete = True
+            anom_mv.artifact_path = str(root)
+            anom_mv.sha256_hash = bundle_hash
+            anom_mv.python_version = py_ver
+            anom_mv.is_active = activate
+        else:
+            anom_mv = ModelVersion(
+                id=uuid.uuid4(),
+                bundle_version=model_version_str,
+                task="anomaly",
+                model_type="IsolationForest",
+                adapter_key="cmapss_fd001",
+                feature_config_version="v1.0",
+                preprocessing_version="v1.0",
+                input_features=active_sensors,
+                horizon=None,
+                horizon_unit=None,
+                decision_threshold=0.50,
+                is_active=activate,
+                model_card_complete=True,
+                artifact_path=str(root),
+                sha256_hash=bundle_hash,
+                python_version=py_ver,
+            )
+            db.add(anom_mv)
+            db.flush()
+
+        # Update or create ModelEvaluation for anomaly
+        existing_anom_eval = db.scalar(
+            select(ModelEvaluation).where(ModelEvaluation.model_version_id == anom_mv.id)
+        )
+        anom_metrics = {
+            "anomaly_detection_proxy": anomaly_proxy,
+            "anomaly_flag_rates_healthy_rows": anomaly_flag_rates,
+        }
+        anom_methodology = json.dumps(
+            {"task": "anomaly", "algorithm": "IsolationForest", "recalibration": "nominal healthy row quantile"},
+            indent=2,
+        )
+        if existing_anom_eval:
+            anom_me = existing_anom_eval
+            anom_me.metrics = anom_metrics
+            anom_me.confusion_matrix = {}
+            anom_me.calibration_curve = {}
+            anom_me.curves = {"anomaly_detection_proxy": anomaly_proxy, "flag_rates": anomaly_flag_rates}
+            anom_me.feature_importance = []
+            anom_me.methodology = anom_methodology
+            anom_me.limitations = ["Unsupervised anomaly detection trained strictly on nominal engine telemetry."]
+            anom_me.evaluated_at = eval_dt
+        else:
+            anom_me = ModelEvaluation(
+                id=uuid.uuid4(),
+                model_version_id=anom_mv.id,
+                task="anomaly",
+                metrics=anom_metrics,
+                confusion_matrix={},
+                calibration_curve={},
+                curves={"anomaly_detection_proxy": anomaly_proxy, "flag_rates": anomaly_flag_rates},
+                feature_importance=[],
+                methodology=anom_methodology,
+                limitations=["Unsupervised anomaly detection trained strictly on nominal engine telemetry."],
+                evaluated_at=eval_dt,
+            )
+            db.add(anom_me)
+
+        # Sync HealthIndicatorConfig from bundle metadata if present
+        h_cfg_file = root / "metadata" / "health_indicator_config.json"
+        if h_cfg_file.is_file():
+            h_json = json.loads(h_cfg_file.read_text(encoding="utf-8"))
+            cfg_part = h_json.get("config", {})
+            anom_w = float(cfg_part.get("anomaly_weight", 0.30))
+            dq_pen = cfg_part.get("data_quality_penalty", {"DATA_OK": 0.0, "DATA_WARNING": 10.0})
+            existing_hcfg = db.scalar(
+                select(HealthIndicatorConfig).where(HealthIndicatorConfig.is_active.is_(True))
+            )
+            if existing_hcfg:
+                existing_hcfg.anomaly_weight = anom_w
+                existing_hcfg.data_quality_penalty = dq_pen
+                existing_hcfg.trend_enabled = False
+            else:
+                db.add(
+                    HealthIndicatorConfig(
+                        version="v1.0",
+                        anomaly_weight=anom_w,
+                        data_quality_penalty=dq_pen,
+                        trend_enabled=False,
+                        is_active=True,
+                    )
+                )
+
         db.commit()
         db.refresh(mv)
-        logger.info("Successfully registered model version: %s (active=%s)", mv.bundle_version, mv.is_active)
+        logger.info("Successfully registered model version: %s (task=failure_risk, active=%s) and anomaly model version (active=%s)", mv.bundle_version, mv.is_active, activate)
         return mv
 
     if session:
@@ -262,7 +409,8 @@ def seed_demo_engines(
     scores_df = pd.read_csv(demo_scores_path)
 
     # Standardize column naming if needed
-    unit_col = "unit_id" if "unit_id" in scores_df.columns else "unit"
+    unit_col = "machine_id" if "machine_id" in scores_df.columns else ("unit_id" if "unit_id" in scores_df.columns else "unit")
+    unit_col_units = "unit_id" if "unit_id" in units_df.columns else ("machine_id" if "machine_id" in units_df.columns else "unit")
     cycle_col = "cycle" if "cycle" in scores_df.columns else "cycle_index"
 
     health_col = None
@@ -293,15 +441,15 @@ def seed_demo_engines(
         if len(w_matches) > max_warning_span:
             max_warning_span = len(w_matches)
             chosen_warning_unit = u
-            chosen_warning_cutoff = int(w_matches.iloc[len(w_matches) // 2][cycle_col])
+            chosen_warning_cutoff = 125 if 125 in w_matches[cycle_col].values else int(w_matches.iloc[len(w_matches) // 2][cycle_col])
 
     if not chosen_warning_unit:
         raise ValueError("Could not find an engine with Warning band (51 <= HI <= 70)")
 
-    # Critical selection: engine 48 or 97 at final cycle
+    # Critical selection: engine 48 or 97 at final cycle (fallback to any available engine for test fixtures)
     chosen_critical_unit = None
     chosen_critical_cutoff = None
-    for u in [48, 97]:
+    for u in [48, 97] + [x for x in available_units if x not in [48, 97]]:
         if u in available_units and u != chosen_warning_unit:
             c_scores = scores_df[scores_df[unit_col] == u]
             final_c = int(c_scores.iloc[-1][cycle_col])
@@ -312,12 +460,12 @@ def seed_demo_engines(
                 break
 
     if not chosen_critical_unit:
-        raise ValueError("Could not find engine 48 or 97 at final cycle with Critical band (HI <= 30)")
+        raise ValueError("Could not find an engine at final cycle with Critical band (HI <= 30)")
 
-    # Healthy selection: any other distinct engine at an early Excellent cycle (HI >= 86.0)
+    # Healthy selection: any other distinct engine at an early Excellent cycle (HI >= 86.0 or >= 71.0)
     chosen_healthy_unit = None
     chosen_healthy_cutoff = None
-    for u in [70, 29, 97, 48, 77]:
+    for u in [70, 29, 97, 48, 77] + [x for x in available_units if x not in [70, 29, 97, 48, 77]]:
         if u in available_units and u not in (chosen_warning_unit, chosen_critical_unit):
             h_scores = scores_df[scores_df[unit_col] == u]
             h_matches = h_scores[h_scores[health_col] >= 86.0]
@@ -325,6 +473,11 @@ def seed_demo_engines(
                 chosen_healthy_unit = u
                 cand_cycle = 35 if 35 in h_matches[cycle_col].values else int(h_matches.iloc[min(20, len(h_matches) - 1)][cycle_col])
                 chosen_healthy_cutoff = cand_cycle
+                break
+            h_matches_71 = h_scores[h_scores[health_col] >= 71.0]
+            if not h_matches_71.empty:
+                chosen_healthy_unit = u
+                chosen_healthy_cutoff = int(h_matches_71.iloc[0][cycle_col])
                 break
 
     if not chosen_healthy_unit:
@@ -366,6 +519,14 @@ def seed_demo_engines(
         if not active_model:
             raise ValueError("No active failure_risk model found in database. Register and activate a model before seeding demo.")
 
+        active_anomaly_model = db.scalar(
+            select(ModelVersion).where(
+                ModelVersion.adapter_key == "cmapss_fd001",
+                ModelVersion.task == "anomaly",
+                ModelVersion.is_active.is_(True),
+            )
+        )
+
         active_health_cfg = db.scalar(
             select(HealthIndicatorConfig).where(HealthIndicatorConfig.is_active.is_(True))
         )
@@ -380,6 +541,8 @@ def seed_demo_engines(
             db.add(active_health_cfg)
             db.flush()
 
+        anomaly_weight = float(active_health_cfg.anomaly_weight)
+
         results = {}
         for category, info in categories.items():
             u_id = info["unit_id"]
@@ -387,7 +550,7 @@ def seed_demo_engines(
             machine_code = f"ENGINE-{u_id:03d}"
 
             # Engine raw rows up to cutoff
-            engine_rows = units_df[(units_df[unit_col] == u_id) & (units_df[cycle_col] <= cutoff)].sort_values(cycle_col)
+            engine_rows = units_df[(units_df[unit_col_units] == u_id) & (units_df[cycle_col] <= cutoff)].sort_values(cycle_col)
             ref_slice = scores_df[(scores_df[unit_col] == u_id) & (scores_df[cycle_col] <= cutoff)].sort_values(cycle_col)
 
             # Re-run score_trajectory in backend and assert parity
@@ -493,6 +656,8 @@ def seed_demo_engines(
             # Insert latest prediction with complete lineage
             fail_prob = float(score_data.get("failure_probability", 0.0))
             anom_score = float(score_data.get("anomaly_score", 0.0))
+            d_thresh = float(active_model.decision_threshold or 0.10)
+            risk_lvl = "Critical" if fail_prob >= 0.50 else ("High" if fail_prob >= 0.20 else ("Medium" if fail_prob >= d_thresh else "Low"))
             pred = Prediction(
                 id=uuid.uuid4(),
                 machine_id=machine.id,
@@ -503,16 +668,16 @@ def seed_demo_engines(
                 feature_config_version=active_model.feature_config_version,
                 preprocessing_version=active_model.preprocessing_version,
                 failure_model_version_id=active_model.id,
-                anomaly_model_version_id=None,
+                anomaly_model_version_id=active_anomaly_model.id if active_anomaly_model else None,
                 health_config_id=active_health_cfg.id,
                 horizon=active_model.horizon or 30,
                 horizon_unit=active_model.horizon_unit or "cycles",
                 failure_probability=fail_prob,
-                risk_level="High" if fail_prob >= 0.50 else ("Medium" if fail_prob >= 0.20 else "Low"),
+                risk_level=risk_lvl,
                 health_indicator=float(score_data[health_col]),
                 health_band=health_band,
                 penalty_risk=round(100.0 * fail_prob, 2),
-                penalty_anomaly=round(100.0 * (1.0 - fail_prob) * 0.30 * anom_score, 2),
+                penalty_anomaly=round(100.0 * (1.0 - fail_prob) * anomaly_weight * anom_score, 2),
                 penalty_dq=0.0,
                 penalty_trend=0.0,
                 clipping_adjustment=0.0,

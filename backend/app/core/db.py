@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -55,7 +55,7 @@ def get_db() -> Generator[Session, None, None]:
         try:
             session = SessionLocal()
             # Perform a lightweight ping to verify connection
-            session.execute(Base.metadata.tables.get("users", None) or "SELECT 1")
+            session.execute(text("SELECT 1"))
             break
         except OperationalError as e:
             if session:

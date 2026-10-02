@@ -47,6 +47,31 @@ def get_active_models(
     return [ModelVersionResponse.model_validate(m) for m in models]
 
 
+@router.get("/active/evaluation", response_model=ModelEvaluationResponse)
+def get_active_model_evaluation(
+    task: str = Query("failure_risk", description="Task type of the active model: failure_risk or anomaly"),
+    current_user: User = Depends(get_current_engineer),
+    db: Session = Depends(get_db),
+):
+    """Retrieves evaluation for the currently active production model."""
+    model = db.scalar(
+        select(ModelVersion).where(
+            ModelVersion.task == task,
+            ModelVersion.is_active.is_(True),
+        )
+    )
+    if not model:
+        raise NotFoundError(message=f"No active model found for task '{task}'")
+
+    evaluation = db.scalar(
+        select(ModelEvaluation).where(ModelEvaluation.model_version_id == model.id)
+    )
+    if not evaluation:
+        raise NotFoundError(message="Model evaluation not available.")
+
+    return ModelEvaluationResponse.model_validate(evaluation)
+
+
 @router.get("/{model_id}", response_model=ModelVersionResponse)
 def get_model(
     model_id: uuid.UUID,

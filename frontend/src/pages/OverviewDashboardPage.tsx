@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ArrowRight, Cpu, HelpCircle } from 'lucide-react';
+import { useDashboardSummary } from '../api';
 
 interface OverviewDashboardProps {
   machines: Machine[];
@@ -20,19 +21,28 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
   onOpenAlerts,
   onOpenOnboarding,
 }) => {
-  const totalMachines = machines.length;
-  const healthyCount = machines.filter(
-    (m) => m.healthBand === 'Healthy' || m.healthBand === 'Excellent'
-  ).length;
-  const warningCount = machines.filter(
-    (m) => m.healthBand === 'Warning' || m.healthBand === 'Poor'
-  ).length;
-  const criticalCount = machines.filter(
-    (m) => m.healthBand === 'Critical' || m.riskLevel === 'Critical'
-  ).length;
-  const avgHealth = Math.round(
-    machines.reduce((acc, m) => acc + m.healthIndicator, 0) / (totalMachines || 1)
-  );
+  const { data: summary } = useDashboardSummary();
+
+  const totalMachines = summary?.total_machines ?? machines.length;
+  const healthyCount =
+    summary?.health_band_counts?.['Healthy'] ??
+    summary?.health_band_counts?.['healthy'] ??
+    machines.filter((m) => m.healthBand === 'Healthy' || m.healthBand === 'Excellent').length;
+  const warningCount =
+    summary?.health_band_counts?.['Warning'] ??
+    summary?.health_band_counts?.['warning'] ??
+    machines.filter((m) => m.healthBand === 'Warning' || m.healthBand === 'Poor').length;
+  const criticalCount =
+    summary?.health_band_counts?.['Critical'] ??
+    summary?.health_band_counts?.['critical'] ??
+    machines.filter((m) => m.healthBand === 'Critical' || m.riskLevel === 'Critical').length;
+  const avgHealth =
+    summary?.average_health_indicator != null
+      ? Math.round(summary.average_health_indicator)
+      : Math.round(machines.reduce((acc, m) => acc + m.healthIndicator, 0) / (totalMachines || 1));
+  const openAlertsCount = summary?.open_alerts_count ?? alerts.filter((a) => a.status === 'open').length;
+  const activeCount = summary?.operational_counts?.['active'] ?? machines.filter((m) => m.operationalStatus === 'active').length;
+  const maintCount = summary?.operational_counts?.['maintenance'] ?? machines.filter((m) => m.operationalStatus === 'maintenance').length;
   const openAlerts = alerts.filter((a) => a.status === 'open');
 
   // Sorted by failure probability descending
@@ -54,10 +64,10 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
                 Fleet Condition & Risk Overview
               </h1>
               <span className="text-[10px] font-mono text-slate-500">•</span>
-              <span className="text-xs font-mono text-slate-400">8 Units Scored</span>
+              <span className="text-xs font-mono text-slate-400">{totalMachines} Units Scored</span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Active models: <span className="font-mono text-slate-300">LightGBM-FD001-v1.2</span> &bull; <span className="font-mono text-slate-300">IsolationForest-v1.0</span> &bull; Horizon H = 30 cycles
+              Active models: <span className="font-mono text-slate-300">xgboost</span> &bull; <span className="font-mono text-slate-300">IsolationForest</span> &bull; Horizon H = 30 cycles
             </p>
           </div>
         </div>
@@ -111,11 +121,11 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
           </div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-2xl font-mono font-bold text-white tabular-nums">
-              {machines.filter((m) => m.operationalStatus === 'active').length}
+              {activeCount}
             </span>
             <span className="text-xs font-mono text-slate-400">Active</span>
             <span className="text-xs font-mono text-blue-400">
-              ({machines.filter((m) => m.operationalStatus === 'maintenance').length} Maint)
+              ({maintCount} Maint)
             </span>
           </div>
           <div className="text-[10px] font-mono text-slate-500 mt-1">
@@ -126,11 +136,11 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
         <div className="p-3 rounded-md bg-[#131923] border border-[#20293a]">
           <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center justify-between">
             <span>Pending Alerts</span>
-            {openAlerts.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500" />}
+            {openAlertsCount > 0 && <span className="w-2 h-2 rounded-full bg-rose-500" />}
           </div>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-2xl font-mono font-bold text-rose-400 tabular-nums">
-              {openAlerts.length}
+              {openAlertsCount}
             </span>
             <span className="text-xs font-mono text-slate-500">Unresolved</span>
           </div>
