@@ -1,9 +1,10 @@
 import json
-from fastapi.testclient import TestClient
-from app.main import app
+
 from app.core.auth import create_access_token
 from app.core.db import SessionLocal
+from app.main import app
 from app.models.entities import User
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

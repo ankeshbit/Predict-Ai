@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.core.db import engine
-from app.ml.pdm_recommendation import recommend_maintenance
 from app.ml.verify_artifacts import verify_manifest
 from app.models.entities import (
     Alert,
@@ -38,6 +37,7 @@ from app.models.entities import (
     Prediction,
     SensorReading,
 )
+from app.services.alert_service import evaluate_trajectory_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -589,24 +589,17 @@ def seed_demo_engines(
             demo_dataset.schema_mapping_hash = real_mapping_hash
             db.flush()
 
-        # Query active AlertRule for high_failure_risk
+        # Ensure active alert_rules row for high_failure_risk is 0.50 and consecutive N=3 (PRD §14.8)
         rule_high_fail = db.scalar(
             select(AlertRule).where(
                 AlertRule.alert_type == "high_failure_risk",
                 AlertRule.is_active.is_(True),
             )
         )
-        high_fail_thresh = (
-            float(rule_high_fail.failure_probability_threshold)
-            if rule_high_fail and rule_high_fail.failure_probability_threshold is not None
-            else 0.50
-        )
-        fail_consecutive_n = (
-            int(rule_high_fail.consecutive_cycles)
-            if rule_high_fail and rule_high_fail.consecutive_cycles is not None
-            else 3
-        )
-        fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_HIGH_FAILURE_RISK"
+        if rule_high_fail:
+            rule_high_fail.failure_probability_threshold = 0.50
+            rule_high_fail.consecutive_cycles = 3
+            db.flush()
 
         results = {}
         for category, info in categories.items():
@@ -754,41 +747,15 @@ def seed_demo_engines(
             )
             db.add(pred)
 
-            # Replay alert rules across trajectory in data order (Requirement 3)
-            high_fail_streak = 0
-            trigger_c = None
-            for _, row_item in ref_slice.iterrows():
-                c_idx = int(row_item[cycle_col])
-                c_fail = float(row_item.get("failure_probability", 0.0))
-                if c_fail >= high_fail_thresh:
-                    high_fail_streak += 1
-                    if high_fail_streak == fail_consecutive_n and trigger_c is None:
-                        trigger_c = c_idx
-                else:
-                    high_fail_streak = 0
-
-            # Leave Critical machine's alert OPEN with recommendation snapshot
-            if cluster == "critical" or category == "critical":
-                rec = recommend_maintenance(
-                    failure_probability=fail_prob,
-                    anomaly_flag=True,
-                    health_indicator=latest_hi,
-                    data_quality_status=score_data.get("data_quality_status", "DATA_OK"),
-                    decision_threshold=active_model.decision_threshold or 0.10,
-                )
-                rec_snapshot = f"{rec['label']}: {rec['category']} - " + "; ".join(rec["reasons"]) + f". {rec['disclaimer']}"
-                open_alert = Alert(
-                    id=uuid.uuid4(),
-                    machine_id=machine.id,
-                    alert_type="high_failure_risk",
-                    status="open",
-                    severity="critical",
-                    trigger_cycle=trigger_c or cutoff,
-                    trigger_score=round(fail_prob, 4),
-                    recommendation_text=rec_snapshot,
-                    recommendation_rule_id=fail_rule_id,
-                )
-                db.add(open_alert)
+            # Unified alert evaluation across trajectory in data order (Requirement 3)
+            evaluate_trajectory_alerts(
+                df=ref_slice,
+                db=db,
+                machine_id=machine.id,
+                decision_threshold=float(active_model.decision_threshold or 0.10),
+                force_open_critical=(cluster == "critical" or category == "critical"),
+                persist=True,
+            )
 
             results[category] = {
                 "machine_code": machine_code,

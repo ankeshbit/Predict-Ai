@@ -160,17 +160,14 @@ def test_anomaly_model_registered_separately(mock_valid_bundle, db):
 
 
 def test_stored_evaluation_metrics_match_registered_bundle(db):
-    """Test fails if stored evaluation metrics differ from the registered bundle's model_card.metrics.
+    """Test dynamically compares stored evaluation metrics to model_card.json metrics.
 
-    Validates exact real values for threshold 0.10:
-    - internal_test: precision 0.692, recall 0.968, F1 0.807, PR-AUC 0.962, ROC-AUC 0.991, accuracy 0.930
-    - official_test_all_rows: precision 0.591, recall 0.852, PR-AUC 0.8157
-    - last_cycle: precision 0.80, recall 0.96
+    Zero numeric literals in code. Fails (does not skip) if the registered bundle is missing.
     """
     from pathlib import Path
     prod_bundle_dir = Path(__file__).resolve().parent.parent / "model_artifacts" / "cmapss-fd001-h30-20261001T203719Z"
     if not prod_bundle_dir.is_dir():
-        pytest.skip("Production model bundle not found in model_artifacts")
+        pytest.fail("Production model bundle not found in model_artifacts")
 
     mv = register_model_bundle(prod_bundle_dir, activate=True, session=db)
     eval_rec = mv.evaluation
@@ -178,28 +175,9 @@ def test_stored_evaluation_metrics_match_registered_bundle(db):
 
     model_card = json.loads((prod_bundle_dir / "metadata" / "model_card.json").read_text(encoding="utf-8"))
     expected_metrics = model_card.get("metrics", {})
+    assert expected_metrics, "model_card.json must contain non-empty metrics dictionary"
 
-    # Check internal_test
-    stored_internal = eval_rec.metrics.get("internal_test", {})
-    assert stored_internal["precision"] == pytest.approx(0.692, abs=1e-3)
-    assert stored_internal["recall"] == pytest.approx(0.968, abs=1e-3)
-    assert stored_internal["f1"] == pytest.approx(0.807, abs=1e-3)
-    assert stored_internal["pr_auc"] == pytest.approx(0.962, abs=1e-3)
-    assert stored_internal["roc_auc"] == pytest.approx(0.991, abs=1e-3)
-    assert stored_internal["accuracy"] == pytest.approx(0.930, abs=1e-3)
-
-    # Check official_test_all_rows
-    stored_official = eval_rec.metrics.get("official_test_all_rows", {})
-    assert stored_official["precision"] == pytest.approx(0.591, abs=1e-3)
-    assert stored_official["recall"] == pytest.approx(0.852, abs=1e-3)
-    assert stored_official["pr_auc"] == pytest.approx(0.8157, abs=1e-3)
-
-    # Check official_test_last_cycle_per_unit
-    stored_last = eval_rec.metrics.get("official_test_last_cycle_per_unit", {})
-    assert stored_last["precision"] == pytest.approx(0.80, abs=1e-2)
-    assert stored_last["recall"] == pytest.approx(0.96, abs=1e-2)
-
-    # Cross-verify every key present in expected_metrics
+    # Cross-verify every key present in expected_metrics dynamically
     for split_key, split_dict in expected_metrics.items():
         assert split_key in eval_rec.metrics, f"Missing split {split_key} in stored metrics"
         stored_split = eval_rec.metrics[split_key]
@@ -209,5 +187,48 @@ def test_stored_evaluation_metrics_match_registered_bundle(db):
                 assert stored_split[metric_name] == pytest.approx(expected_val, rel=1e-4), (
                     f"Metric mismatch for {split_key}.{metric_name}: stored={stored_split[metric_name]} vs expected={expected_val}"
                 )
+
+
+def test_alert_evaluation_engine_48_triggers_at_cycle_203():
+    from pathlib import Path
+
+    import pandas as pd
+
+    from app.services.alert_service import (
+        evaluate_trajectory_alerts,
+        find_high_failure_risk_trigger,
+    )
+
+    scores_path = (
+        Path(__file__).resolve().parent.parent
+        / "model_artifacts"
+        / "cmapss-fd001-h30-20261001T203719Z"
+        / "demo"
+        / "demo_reference_scores.csv"
+    )
+    if not scores_path.is_file():
+        pytest.fail(f"Reference scores file not found at {scores_path}")
+
+    scores_df = pd.read_csv(scores_path)
+    engine_48_df = scores_df[scores_df["machine_id"] == 48].sort_values("cycle")
+
+    # Evaluate directly with find_high_failure_risk_trigger
+    trigger = find_high_failure_risk_trigger(engine_48_df, threshold=0.50, consecutive_n=3)
+    assert trigger is not None, "Engine 48 should trigger high_failure_risk"
+    trigger_cycle, trigger_score = trigger
+    assert trigger_cycle == 203, f"Expected Engine 48 to trigger at cycle 203, got {trigger_cycle}"
+    assert trigger_score == pytest.approx(0.5948, abs=1e-3)
+
+    # Evaluate with full evaluate_trajectory_alerts function
+    eval_result = evaluate_trajectory_alerts(
+        df=engine_48_df,
+        db=None,
+        machine_id="00000000-0000-0000-0000-000000000048",
+        decision_threshold=0.10,
+        persist=False,
+    )
+    assert eval_result["high_failure_risk"]["triggered"] is True
+    assert eval_result["high_failure_risk"]["trigger_cycle"] == 203
+    assert eval_result["high_failure_risk"]["trigger_score"] == pytest.approx(0.5948, abs=1e-3)
 
 

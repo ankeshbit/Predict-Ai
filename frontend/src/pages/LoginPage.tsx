@@ -11,7 +11,7 @@ interface LoginPageProps {
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('engineer@predicore.internal');
-  const [password, setPassword] = useState('EngineerSecret123!');
+  const [password, setPassword] = useState('EngineerSecurePass123!');
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -189,33 +189,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 disabled={loginMutation.isPending}
                 onClick={() => {
                   setEmail('engineer@predicore.internal');
-                  setPassword('EngineerSecret123!');
-                  handlePerformLogin('engineer@predicore.internal', 'EngineerSecret123!');
+                  setPassword('EngineerSecurePass123!');
+                  handlePerformLogin('engineer@predicore.internal', 'EngineerSecurePass123!');
                 }}
                 className="w-full text-xs text-slate-200 justify-center"
               >
                 Sign In as Reliability Engineer (Operator)
               </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={loginMutation.isPending}
-                onClick={() => {
-                  setEmail('admin@predicore.internal');
-                  setPassword('AdminSecret123!');
-                  handlePerformLogin('admin@predicore.internal', 'AdminSecret123!');
-                }}
-                className="w-full text-xs text-slate-400 hover:text-slate-200 justify-center border-[#233148]"
-              >
-                Sign In as System Administrator (Governance)
-              </Button>
             </div>
           </div>
 
           <div className="p-3 rounded-md bg-[#0e141f] border border-[#1f2838] text-center text-[11px] text-slate-400 leading-relaxed font-mono">
-            Demo Environment: 8 turbofan engines seeded with run-to-failure telemetry from NASA C-MAPSS FD001 test partition.
+            Demo Environment: 5 turbofan engines seeded with run-to-failure telemetry from NASA C-MAPSS FD001 test partition.
           </div>
         </div>
       </div>

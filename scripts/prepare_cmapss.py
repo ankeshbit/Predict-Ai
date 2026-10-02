@@ -6,8 +6,9 @@ into canonical CSV format with standardized column headers.
 """
 
 import sys
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 COLUMN_NAMES = [
     "unit_id", "cycle",

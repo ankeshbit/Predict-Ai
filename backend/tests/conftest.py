@@ -9,6 +9,17 @@ import json
 import os
 
 os.environ["TESTING"] = "1"
+# Ensure fast timeout in tests so DB connection attempts don't stall
+os.environ.setdefault("DB_CONNECT_TIMEOUT", "2")
+
+# Database URL for tests - strictly isolated from dev database
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL",
+    "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
+)
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ["DATABASE_URL_DIRECT"] = TEST_DATABASE_URL
+
 import uuid
 from pathlib import Path
 
@@ -26,19 +37,17 @@ from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.entities import HealthIndicatorConfig, User
 
-# Ensure fast timeout in tests so DB connection attempts don't stall
-os.environ.setdefault("DB_CONNECT_TIMEOUT", "2")
-
-# Database URL for tests - strictly isolated from dev database
-TEST_DATABASE_URL = os.environ.get(
-    "TEST_DATABASE_URL",
-    "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
-)
 settings.DATABASE_URL = TEST_DATABASE_URL
 settings.DATABASE_URL_DIRECT = TEST_DATABASE_URL
 
+test_connect_args = {"prepare_threshold": None}
+local_hosts = ("localhost", "127.0.0.1", "test-postgres", "postgres", "predict_ai_test_postgres")
+if not any(h in TEST_DATABASE_URL for h in local_hosts):
+    test_connect_args["sslmode"] = "require"
+
 test_engine = create_engine(
     TEST_DATABASE_URL,
+    connect_args=test_connect_args,
     pool_pre_ping=True,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)

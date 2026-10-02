@@ -29,8 +29,8 @@ from app.api.v1.models import router as models_router
 from app.api.v1.predictions import router as predictions_router
 from app.api.v1.scoring import router as scoring_router
 from app.api.v1.settings import admin_router, settings_router
+from app.core import db as core_db
 from app.core.config import settings
-from app.core.db import engine
 from app.core.errors import (
     AppError,
     app_error_handler,
@@ -64,13 +64,45 @@ def verify_active_model_artifacts():
             logger.info("Strict model bundle verification PASSED for '%s' (manifest checksums + Python 3.12 library versions).", bundle.name)
 
 
+def check_production_security():
+    """In production, refuse to start with default/insecure credentials or localhost database."""
+    if settings.ENVIRONMENT == "production":
+        insecure_keys = {
+            "insecure_dev_secret_key_minimum_32_characters_long",
+            "change-me",
+            "secret",
+        }
+        if settings.SECRET_KEY in insecure_keys or len(settings.SECRET_KEY) < 32:
+            raise RuntimeError(
+                "Production startup aborted: Insecure or default SECRET_KEY detected. "
+                "A unique 32+ character SECRET_KEY must be provided via environment variables."
+            )
+
+        default_db_urls = {
+            "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai",
+            "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai_test",
+        }
+        if (
+            settings.DATABASE_URL in default_db_urls
+            or "localhost" in settings.DATABASE_URL
+            or "127.0.0.1" in settings.DATABASE_URL
+            or "predict_ai_test" in settings.DATABASE_URL
+        ):
+            raise RuntimeError(
+                "Production startup aborted: Default or localhost DATABASE_URL detected. "
+                "Production requires a dedicated managed database (e.g., Neon PostgreSQL with SSL)."
+            )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Security checks: enforce production constraints
+    check_production_security()
     # Startup tasks: run manifest + library-version verification
     verify_active_model_artifacts()
     yield
     # Shutdown tasks
-    engine.dispose()
+    core_db.engine.dispose()
 
 
 app = FastAPI(
@@ -152,7 +184,7 @@ def health_check():
     """
     db_status = "connected"
     try:
-        with engine.connect() as conn:
+        with core_db.engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception as e:
         db_status = f"degraded: {str(e)[:100]}"

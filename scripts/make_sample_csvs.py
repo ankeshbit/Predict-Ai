@@ -7,9 +7,10 @@ Generates sample CSV datasets for testing the FR-6 Dataset Compatibility Gate:
 3. incompatible_ai4i_sample.csv: Incompatible schema missing required sensor channels.
 """
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "database" / "sample_data"
 SAMPLE_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
+from app.core.db import engine
+from app.models.entities import ModelEvaluation, ModelVersion, Prediction
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.core.db import engine
-from app.models.entities import ModelVersion, ModelEvaluation, Prediction
 
 with Session(engine) as db:
     model_versions = db.scalars(select(ModelVersion).order_by(ModelVersion.created_at.asc())).all()

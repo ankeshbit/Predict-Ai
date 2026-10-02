@@ -46,7 +46,8 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     connect_args = {}
-    if "localhost" not in migration_url and "127.0.0.1" not in migration_url:
+    local_hosts = ("localhost", "127.0.0.1", "test-postgres", "postgres", "predict_ai_test_postgres")
+    if not any(h in migration_url for h in local_hosts):
         connect_args["sslmode"] = "require"
 
     connectable = engine_from_config(

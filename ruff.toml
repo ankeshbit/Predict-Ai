@@ -1,0 +1,14 @@
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "backend/model_artifacts",
+    "backend/app/ml",
+]
+
+[lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"backend/tests/*" = ["E402"]
+"tests/*" = ["E402"]

@@ -290,7 +290,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("rule_id", sa.String(64), unique=True, nullable=False),
         sa.Column("alert_type", sa.String(64), nullable=False),
-        sa.Column("failure_probability_threshold", sa.Float(), nullable=False, server_default="0.70"),
+        sa.Column("failure_probability_threshold", sa.Float(), nullable=False, server_default="0.50"),
         sa.Column("anomaly_severity_threshold", sa.String(32), nullable=False, server_default="high"),
         sa.Column("consecutive_cycles", sa.Integer(), nullable=False, server_default="3"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
@@ -348,7 +348,7 @@ def upgrade() -> None:
 
     # Seed default Alert Rules
     rules = [
-        (uuid.uuid4(), "REC_HIGH_RISK_01", "high_failure_risk", 0.70, "high", 3),
+        (uuid.uuid4(), "REC_HIGH_RISK_01", "high_failure_risk", 0.50, "high", 3),
         (uuid.uuid4(), "REC_SEVERE_ANOM_01", "severe_anomaly", 0.60, "critical", 2),
         (uuid.uuid4(), "REC_RAPID_DETER_01", "rapid_deterioration", 0.50, "high", 3),
     ]

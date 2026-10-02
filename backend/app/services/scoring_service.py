@@ -26,8 +26,6 @@ from app.ml.pdm_health import health_breakdown
 from app.ml.pdm_inference import ModelBundle, score_trajectory
 from app.ml.pdm_recommendation import recommend_maintenance
 from app.models.entities import (
-    Alert,
-    AlertRule,
     Anomaly,
     Dataset,
     HealthIndicatorConfig,
@@ -38,6 +36,7 @@ from app.models.entities import (
     SensorReading,
     Setting,
 )
+from app.services.alert_service import evaluate_trajectory_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +223,6 @@ def score_machine_trajectory(
     latest_row = scored_df.iloc[-1]
     latest_hi = float(latest_row["machine_health_indicator"])
     latest_fail = float(latest_row["failure_probability"])
-    latest_anom = float(latest_row["anomaly_score"])
     latest_band = (
         "Excellent" if latest_hi >= 86.0
         else ("Healthy" if latest_hi >= 71.0
@@ -235,91 +233,23 @@ def score_machine_trajectory(
     machine.health_indicator = latest_hi
     machine.health_band = latest_band
 
-    # 8. Alert Rule Evaluation (respecting uq_open_alert_per_type)
+    # 8. Alert Rule Evaluation (respecting uq_open_alert_per_type and data order)
     rec = recommend_maintenance(
         failure_probability=latest_fail,
         anomaly_flag=bool(latest_row.get("anomaly_flag", False)),
         health_indicator=latest_hi,
-        data_quality_status=latest_row.get("data_quality_status", "DATA_OK"),
-        decision_threshold=active_model.decision_threshold or 0.50,
+        data_quality_status=str(latest_row.get("data_quality_status", "DATA_OK")),
+        decision_threshold=float(active_model.decision_threshold or 0.10),
     )
 
-    # Explicit alert rule evaluation from database records (PRD §14.8)
-    rule_high_fail = db.scalar(
-        select(AlertRule).where(
-            AlertRule.alert_type == "high_failure_risk",
-            AlertRule.is_active.is_(True),
-        )
+    evaluate_trajectory_alerts(
+        df=scored_df,
+        db=db,
+        machine_id=machine_id,
+        decision_threshold=float(active_model.decision_threshold or 0.10),
+        check_severe_anomaly=True,
+        persist=True,
     )
-    high_fail_thresh = (
-        float(rule_high_fail.failure_probability_threshold)
-        if rule_high_fail and rule_high_fail.failure_probability_threshold is not None
-        else 0.50
-    )
-    fail_consecutive_n = (
-        int(rule_high_fail.consecutive_cycles)
-        if rule_high_fail and rule_high_fail.consecutive_cycles is not None
-        else 3
-    )
-    fail_rule_id = rule_high_fail.rule_id if rule_high_fail else "RULE_HIGH_FAILURE_RISK"
-
-    # Consecutive N check across latest cycles
-    recent_fail_probs = scored_df["failure_probability"].tail(fail_consecutive_n)
-    is_high_fail_triggered = (
-        len(recent_fail_probs) >= fail_consecutive_n
-        and (recent_fail_probs >= high_fail_thresh).all()
-    )
-
-    if is_high_fail_triggered:
-        existing_alert = db.scalar(
-            select(Alert).where(
-                Alert.machine_id == machine_id,
-                Alert.alert_type == "high_failure_risk",
-                Alert.status.in_(["open", "acknowledged"]),
-            )
-        )
-        if not existing_alert:
-            alert = Alert(
-                id=uuid.uuid4(),
-                machine_id=machine_id,
-                alert_type="high_failure_risk",
-                status="open",
-                severity="critical",
-                trigger_cycle=int(latest_row["cycle"]),
-                trigger_score=latest_fail,
-                recommendation_text=rec["category"] + ": " + "; ".join(rec["reasons"]),
-                recommendation_rule_id=fail_rule_id,
-            )
-            db.add(alert)
-
-    rule_anom = db.scalar(
-        select(AlertRule).where(
-            AlertRule.alert_type == "severe_anomaly",
-            AlertRule.is_active.is_(True),
-        )
-    )
-    anom_rule_id = rule_anom.rule_id if rule_anom else "RULE_ANOMALY_80"
-    if latest_anom >= 0.80:
-        existing_alert = db.scalar(
-            select(Alert).where(
-                Alert.machine_id == machine_id,
-                Alert.alert_type == "severe_anomaly",
-                Alert.status.in_(["open", "acknowledged"]),
-            )
-        )
-        if not existing_alert:
-            alert = Alert(
-                id=uuid.uuid4(),
-                machine_id=machine_id,
-                alert_type="severe_anomaly",
-                status="open",
-                severity="warning",
-                trigger_cycle=int(latest_row["cycle"]),
-                trigger_score=latest_anom,
-                recommendation_text=rec["category"] + ": " + "; ".join(rec["reasons"]),
-                recommendation_rule_id=anom_rule_id,
-            )
-            db.add(alert)
 
     db.commit()
     db.refresh(machine)

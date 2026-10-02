@@ -5,10 +5,11 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from pdm_explain import explain_row
-from pdm_health import compute_health_indicator, health_breakdown
+
 from pdm_quality import check_data_quality
+from pdm_health import compute_health_indicator, health_breakdown
 from pdm_recommendation import recommend_maintenance
+from pdm_explain import explain_row
 
 # Data-quality status -> user-facing reliability wording
 RELIABILITY = {"DATA_OK": "reliable", "DATA_WARNING": "reliability_reduced", "DATA_INVALID": "not_scored"}
