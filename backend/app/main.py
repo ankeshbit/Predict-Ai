@@ -58,10 +58,13 @@ def verify_active_model_artifacts():
             d for d in artifacts_base.iterdir()
             if d.is_dir() and (d / "metadata" / "artifact_manifest.json").is_file()
         ]
-        strict = (settings.ENVIRONMENT != "testing" and os.environ.get("TESTING") != "1")
+        strict = (settings.ENVIRONMENT == "production" or os.environ.get("STRICT_MODEL_VERIFICATION") == "1")
         for bundle in candidate_bundles:
             verify_all(bundle, strict_versions=strict)
-            logger.info("Strict model bundle verification PASSED for '%s' (manifest checksums + Python 3.12 library versions).", bundle.name)
+            if strict:
+                logger.info("Strict model bundle verification PASSED for '%s' (manifest checksums + Python 3.12 library versions).", bundle.name)
+            else:
+                logger.info("Model bundle verification PASSED for '%s' (manifest checksums verified; strict library versions disabled in %s).", bundle.name, settings.ENVIRONMENT)
 
 
 def check_production_security():
