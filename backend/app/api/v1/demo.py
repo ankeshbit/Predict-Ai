@@ -8,16 +8,15 @@ import logging
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_admin
 from app.core.db import get_db
 from app.core.errors import BadRequestError, InternalServerError
 from app.models.entities import ModelVersion, User
 from app.services.importer import seed_demo_engines
+from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

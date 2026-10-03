@@ -15,8 +15,8 @@ class DatasetResponse(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
-    filename: str
-    file_size_bytes: int
+    filename: Optional[str] = None
+    file_size_bytes: Optional[int] = None
     row_count: Optional[int] = None
     unit_count: Optional[int] = None
     schema_mapping: Optional[Dict[str, str]] = None

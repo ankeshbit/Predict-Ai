@@ -40,8 +40,11 @@ export interface CreateMaintenanceInput {
   decision_rationale: string;
   action_taken: string;
   action_type?: string;
+  status?: string;
+  outcome?: string;
   notes?: string;
 }
+
 
 export interface CompleteMaintenanceInput {
   recordId: string;

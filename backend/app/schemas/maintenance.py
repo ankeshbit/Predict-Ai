@@ -43,7 +43,10 @@ class CreateMaintenanceRequest(BaseModel):
     decision_rationale: str
     action_taken: str
     action_type: Optional[str] = "inspection"
+    status: Optional[str] = "in_progress"
+    outcome: Optional[str] = None  # 'resolved' | 'no_issue_found' | 'unresolved'
     notes: Optional[str] = ""
+
 
 
 class CompleteMaintenanceRequest(BaseModel):

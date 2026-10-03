@@ -6,10 +6,6 @@ import uuid
 from typing import List, Optional
 
 import numpy as np
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
@@ -40,6 +36,9 @@ from app.schemas.predictions import (
     PredictionResponse,
 )
 from app.services.scoring_service import score_machine_trajectory
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/machines", tags=["Machines"])
 

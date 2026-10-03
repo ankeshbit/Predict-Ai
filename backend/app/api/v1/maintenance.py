@@ -11,10 +11,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
@@ -25,6 +21,9 @@ from app.schemas.maintenance import (
     MaintenanceListResponse,
     MaintenanceRecordResponse,
 )
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Workflow"])
 
@@ -78,6 +77,10 @@ def create_maintenance_action(
             alert.acknowledged_at = datetime.now(timezone.utc)
             alert.acknowledged_by_user_id = current_user.id
 
+    is_completed = payload.status == "completed" or payload.outcome in ("resolved", "no_issue_found")
+    record_status = "completed" if is_completed else (payload.status or "in_progress")
+    now_utc = datetime.now(timezone.utc)
+
     record = MaintenanceRecord(
         id=uuid.uuid4(),
         machine_id=machine.id,
@@ -88,15 +91,28 @@ def create_maintenance_action(
         decision_rationale=payload.decision_rationale,
         action_taken=payload.action_taken,
         action_type=payload.action_type or "inspection",
-        status="in_progress",
+        status=record_status,
+        outcome=payload.outcome,
         engineer_notes=payload.notes or "",
         performed_by_user_id=current_user.id,
-        started_at=datetime.now(timezone.utc),
+        started_at=now_utc,
+        completed_at=now_utc if is_completed else None,
     )
     db.add(record)
 
-    # Workflow Side Effect: transition machine to maintenance
-    machine.operational_status = "maintenance"
+    # Workflow Side Effect: transition machine status
+    if payload.outcome in ("resolved", "no_issue_found"):
+        machine.operational_status = "active"
+    else:
+        machine.operational_status = "maintenance"
+
+    # Also resolve associated alert if resolved
+    if record.alert_id and payload.outcome == "resolved":
+        alert = db.get(Alert, record.alert_id)
+        if alert and alert.status != "resolved":
+            alert.status = "resolved"
+            alert.resolved_at = now_utc
+            alert.resolved_by_user_id = current_user.id
 
     db.commit()
     db.refresh(record)

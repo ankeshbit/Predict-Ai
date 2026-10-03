@@ -8,7 +8,6 @@ Create Date: 2026-10-02 01:30:00.000000
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision: str = "003_add_machine_metadata"

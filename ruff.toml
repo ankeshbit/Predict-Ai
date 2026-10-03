@@ -1,8 +1,9 @@
 line-length = 100
 target-version = "py312"
-extend-exclude = [
+exclude = [
     "backend/model_artifacts",
     "backend/app/ml",
+    "ml/notebooks",
 ]
 
 [lint]

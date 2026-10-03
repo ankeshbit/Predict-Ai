@@ -27,7 +27,8 @@ from app.api.v1.machines import router as machines_router
 from app.api.v1.maintenance import router as maintenance_router
 from app.api.v1.models import router as models_router
 from app.api.v1.predictions import router as predictions_router
-from app.api.v1.scoring import legacy_scoring_router, router as scoring_router
+from app.api.v1.scoring import legacy_scoring_router
+from app.api.v1.scoring import router as scoring_router
 from app.api.v1.settings import admin_router, settings_router
 from app.core import db as core_db
 from app.core.config import settings

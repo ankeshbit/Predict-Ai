@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 
 # Expected constant channels in C-MAPSS FD001 (near zero variance)

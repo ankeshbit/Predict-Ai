@@ -5,10 +5,6 @@ PRD §14.7: Fleet summary, priority at-risk machines, recent anomalies, alerts, 
 
 from typing import List
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.models.entities import Alert, Anomaly, Machine, Prediction, User
@@ -20,6 +16,9 @@ from app.schemas.dashboard import (
     RecentAlertItem,
     RecentAnomalyItem,
 )
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 

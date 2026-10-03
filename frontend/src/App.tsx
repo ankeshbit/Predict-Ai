@@ -251,8 +251,11 @@ export function App() {
       decision: recordData.decision,
       decision_rationale: recordData.decisionRationale,
       action_taken: recordData.actionTaken,
+      status: recordData.status,
+      outcome: recordData.outcome,
       notes: recordData.notes,
     });
+
   };
 
   const handleSelectMachine = (machineId: string) => {

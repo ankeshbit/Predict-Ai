@@ -7,10 +7,6 @@ import uuid
 from typing import Optional
 
 import pandas as pd
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
@@ -27,6 +23,9 @@ from app.schemas.datasets import (
 from app.services.compatibility import run_fr6_compatibility_checks
 from app.services.ingestion import run_ingestion_job
 from app.services.upload import get_staged_file_path, stage_uploaded_file
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 

@@ -6,11 +6,10 @@ import logging
 import time
 from typing import Generator
 
+from app.core.config import settings
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

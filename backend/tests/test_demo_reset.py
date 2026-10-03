@@ -10,10 +10,9 @@ Validates PRD FR-11:
 
 import uuid
 
-from fastapi.testclient import TestClient
-
 from app.models.entities import Alert, Machine, MaintenanceRecord, ModelVersion, User
 from app.services.importer import register_model_bundle, seed_demo_engines
+from fastapi.testclient import TestClient
 
 
 def test_demo_reset_requires_auth(client: TestClient):

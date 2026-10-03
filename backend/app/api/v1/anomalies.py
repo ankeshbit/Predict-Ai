@@ -5,15 +5,14 @@ Anomalies API Router (PRD §14.4)
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
 from app.models.entities import Anomaly, Machine, User
 from app.schemas.anomalies import AnomalyListResponse, AnomalyResponse
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["Anomalies"])
 

@@ -12,8 +12,6 @@ Verifies all newly built endpoints for:
 
 import uuid
 
-from fastapi.testclient import TestClient
-
 from app.models.entities import (
     Alert,
     Dataset,
@@ -23,6 +21,7 @@ from app.models.entities import (
 )
 from app.services.importer import register_model_bundle
 from app.services.scoring_service import run_scoring_job, score_machine_trajectory
+from fastapi.testclient import TestClient
 
 
 def test_dashboard_endpoints(client: TestClient, engineer_headers: dict, db):

@@ -11,9 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
-from fastapi import UploadFile
-
 from app.core.errors import AppError, StagingExpiredError
+from fastapi import UploadFile
 
 # Upload limits
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -141,6 +140,9 @@ def stage_uploaded_file(upload_file: UploadFile) -> Tuple[str, Dict[str, Any]]:
                 sha256.update(chunk)
                 row_count += chunk.count(b"\n")
                 f_out.write(chunk)
+
+            if first_chunk:
+                validate_file_content(b"")
 
     except Exception:
         destination_path.unlink(missing_ok=True)

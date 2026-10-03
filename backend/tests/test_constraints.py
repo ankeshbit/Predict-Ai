@@ -6,8 +6,6 @@ Verifies that invalid domain states are strictly rejected at the database level.
 import uuid
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from app.models.entities import (
     Alert,
     Dataset,
@@ -18,6 +16,7 @@ from app.models.entities import (
     SensorReading,
     User,
 )
+from sqlalchemy.exc import IntegrityError
 
 
 def test_health_indicator_config_anomaly_weight_constraint(db):

@@ -2,18 +2,17 @@
 Authentication router: login, me, and change-password
 """
 
-from fastapi import APIRouter, Depends, Request, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_user, log_audit_event
 from app.core.config import settings
 from app.core.db import get_db
 from app.core.errors import ConflictError, UnauthorizedError
+from app.core.rate_limit import login_limiter, rate_limit_check
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.entities import User
-from app.core.rate_limit import login_limiter, rate_limit_check
 from app.schemas.auth import ChangePasswordRequest, LoginRequest, TokenResponse, UserResponse
+from fastapi import APIRouter, Depends, Request, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

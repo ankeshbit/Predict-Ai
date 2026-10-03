@@ -39,14 +39,15 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
 }) => {
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [decision, setDecision] = useState<'followed_recommendation' | 'modified' | 'declined'>('followed_recommendation');
-  const [decisionRationale, setDecisionRationale] = useState('');
-  const [actionTaken, setActionTaken] = useState('');
+  const [decisionRationale, setDecisionRationale] = useState('Verified sensor drift across cycle window.');
+  const [actionTaken, setActionTaken] = useState('Borescope inspection and sensor calibration performed.');
   const [maintenanceOutcome, setMaintenanceOutcome] = useState<'resolved' | 'unresolved' | 'no_issue_found'>('resolved');
   const [notes, setNotes] = useState('');
 
-  // Active alerts for this machine
+  // Machine alerts and latest alert
   const machineAlerts = alerts.filter((a) => a.machineId === machine.id);
   const activeAlert = machineAlerts.find((a) => a.status === 'open' || a.status === 'acknowledged');
+  const latestAlert = activeAlert || machineAlerts[0];
 
   // Submit maintenance record
   const handleSaveMaintenance = (e: React.FormEvent) => {
@@ -54,8 +55,8 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
     onRecordMaintenance({
       machineId: machine.id,
       machineCode: machine.machineCode,
-      alertId: activeAlert?.id,
-      issue: activeAlert ? activeAlert.message : 'Condition assessment inspection',
+      alertId: activeAlert?.id || latestAlert?.id,
+      issue: (activeAlert || latestAlert) ? (activeAlert || latestAlert).message : 'Condition assessment inspection',
       recommendedAction: machine.recommendation.text,
       decision,
       decisionRationale: decisionRationale || 'Verified sensor drift across cycle window.',
@@ -248,26 +249,28 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
               Note: AI-generated recommendation, not a confirmed diagnosis. Verification required.
             </div>
 
-            {/* Alert Acknowledgment */}
-            {activeAlert && activeAlert.status === 'open' && (
-              <div className="pt-2 flex items-center justify-between border-t border-[#1a2333]">
+            {/* Alert Status Lifecycle: Open -> Acknowledged -> Resolved */}
+            {latestAlert && latestAlert.status === 'open' && (
+              <div data-testid="alert-status-open" className="pt-2 flex items-center justify-between border-t border-[#1a2333]">
                 <span className="text-xs text-rose-400 font-mono flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5" /> Open Alert Pending Action
                 </span>
                 <Button
+                  data-testid="acknowledge-alert-btn"
                   variant="primary"
                   size="xs"
-                  onClick={() => onAcknowledgeAlert(activeAlert.id)}
+                  onClick={() => onAcknowledgeAlert(latestAlert.id)}
                   icon={<CheckCircle2 className="w-3.5 h-3.5" />}
                 >
                   Acknowledge Alert
                 </Button>
               </div>
             )}
-            {activeAlert && activeAlert.status === 'acknowledged' && (
-              <div className="p-2 rounded bg-amber-950/30 border border-amber-800/40 text-xs font-mono text-amber-300 flex items-center justify-between">
-                <span>Acknowledged by {activeAlert.acknowledgedBy}</span>
+            {latestAlert && latestAlert.status === 'acknowledged' && (
+              <div data-testid="alert-status-acknowledged" className="p-2 rounded bg-amber-950/30 border border-amber-800/40 text-xs font-mono text-amber-300 flex items-center justify-between">
+                <span>Acknowledged by {latestAlert.acknowledgedBy}</span>
                 <Button
+                  data-testid="record-work-btn"
                   variant="secondary"
                   size="xs"
                   onClick={() => setIsMaintenanceModalOpen(true)}
@@ -275,6 +278,14 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
                 >
                   Record Work
                 </Button>
+              </div>
+            )}
+            {latestAlert && latestAlert.status === 'resolved' && (
+              <div data-testid="alert-status-resolved" className="p-2 rounded bg-emerald-950/30 border border-emerald-800/40 text-xs font-mono text-emerald-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Alert Resolved &amp; Verified
+                </span>
+                <span className="text-[10px] text-emerald-400">Maintenance Completed</span>
               </div>
             )}
           </div>
@@ -378,7 +389,6 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             placeholder="Explain why this decision was reached..."
             value={decisionRationale}
             onChange={(e) => setDecisionRationale(e.target.value)}
-            required
           />
 
           <Input
@@ -386,11 +396,12 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             placeholder="Detailed description of inspection or repair..."
             value={actionTaken}
             onChange={(e) => setActionTaken(e.target.value)}
-            required
           />
 
           <Select
             label="Maintenance Outcome"
+            data-testid="outcome-select"
+            id="outcome-select"
             value={maintenanceOutcome}
             onChange={(e) => setMaintenanceOutcome(e.target.value as any)}
             options={[
@@ -415,7 +426,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             <Button variant="secondary" size="xs" type="button" onClick={() => setIsMaintenanceModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" size="xs" type="submit">
+            <Button variant="primary" size="xs" type="submit" data-testid="save-maintenance-btn">
               Save Record
             </Button>
           </div>

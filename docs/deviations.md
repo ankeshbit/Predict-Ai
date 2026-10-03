@@ -96,3 +96,33 @@ xgboost==3.2.0
 1. **Zero Vulnerabilities in Core Inference**: Running `pip-audit -r requirements-inference.txt --no-deps --disable-pip` against both PyPI and OSV vulnerability databases reports **0 known vulnerabilities** for all 6 pinned packages.
 2. **Python >= 3.11 Constraint**: `scipy==1.16.3` strictly requires Python >= 3.11. Production deployment runs in Docker with Python 3.12.
 3. **Immutability of Bundled Packages**: In accordance with PRD §1.4 (*Strict Separation of Training and Inference*), the backend never retrains or adjusts model weights. Changing serialized versions of `scikit-learn` or `scipy` without full retraining in Colab risks silent numerical drift or unpickling incompatibility. The versions in `requirements-inference.txt` are therefore accepted frozen dependencies.
+
+---
+
+## 7. Model Library Version Verification Scope (Commit `fe5eaf9`)
+
+### PRD v3.0 Specification (§1.4 / AGENTS.md §2.3)
+The backend must verify model bundle checksums and library versions before activating or loading model artifacts to prevent training-serving skew.
+
+### Implemented Runtime Formulation
+- **Cryptographic Manifest Verification**: The SHA-256 checksum of every artifact in the model bundle (`model_artifacts/cmapss-fd001-h30-20261001T203719Z`) is verified on every startup across all environments. If any file is tampered with or corrupted, startup aborts immediately.
+- **Library Version Check**: The developer host workstation runs Python 3.10.0, whereas the registered model bundle was fitted and serialized under Python 3.12 (`3.12.13`) in Colab. Enforcing exact Python 3.12 version matching on local development workstations running Python 3.10 caused startup to abort (`ArtifactVerificationError: library version mismatch: python: artifacts built with 3.12, installed 3.10`), blocking local offline development, unit tests, and Playwright E2E execution without Docker.
+- **Production Guard**: In `ENVIRONMENT=production` (and when `STRICT_MODEL_VERIFICATION=1`), `verify_all(bundle, strict_versions=True)` is unconditionally executed at application startup. Any version mismatch in production raises `ArtifactVerificationError` and aborts container boot immediately (verified by `backend/tests/test_production_security.py::test_production_aborts_on_model_bundle_version_mismatch`). The production Dockerfile runs Python 3.12 with identical pinned packages matching `requirements-inference.txt`.
+
+---
+
+## 8. Maintenance Completion Auto-Resolves Associated Alert (Closed-Loop Workflow)
+
+### PRD v3.0 Specification (§7 / FR-13, FR-14, §7.1)
+PRD §FR-13 specifies that alerts transition `open` $\to$ `acknowledged` $\to$ `resolved`. PRD §FR-14 specifies human-in-the-loop maintenance logging. PRD §7.1 acceptance criteria specifies:
+$$\text{acknowledge (open}\to\text{acknowledged)} \longrightarrow \text{maintenance record (acknowledged}\to\text{resolved)} \longrightarrow \text{machine returns to active}$$
+
+### Implemented Workflow Formulation
+When an engineer records or completes a maintenance intervention with outcome `resolved` (or `no_issue_found`) that is linked to an alert (`record.alert_id`):
+1. **Machine Operational Status**: Restored to `active`.
+2. **Linked Alert Status**: Automatically transitioned to `resolved` atomically within the same transaction, setting `resolved_at = datetime.now(timezone.utc)` and `resolved_by_user_id = current_user.id`.
+3. **Standalone Resolution Preserved**: An engineer may still explicitly resolve an alert without creating a maintenance record via `POST /api/v1/alerts/{id}/resolve` (e.g. for non-actionable warnings or operational review).
+
+### Rationale
+Requiring an engineer who has already inspected the machine, documented the corrective work, and certified the outcome as `resolved` to subsequently locate and click a separate "Resolve Alert" button introduces redundant UI friction and leaves alerts in an inconsistent state (`acknowledged` while the physical problem is solved). Automatic atomic resolution upon certified maintenance completion aligns directly with the PRD §7.1 closed-loop acceptance criteria.
+

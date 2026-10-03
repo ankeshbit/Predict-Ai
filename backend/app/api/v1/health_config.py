@@ -2,15 +2,14 @@
 Health Indicator Configuration API router: view and configure deterministic breakdown weights.
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
 from app.models.entities import HealthIndicatorConfig, User
 from app.schemas.health_config import HealthConfigResponse, HealthConfigUpdateRequest
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/health-config", tags=["Health Indicator Configuration"])
 
