@@ -1,8 +1,16 @@
 # Preserve exact line endings for model artifacts and code to guarantee SHA-256 manifest hashes
 * text=auto eol=lf
-backend/model_artifacts/** text eol=lf
-backend/app/ml/** text eol=lf
 *.py text eol=lf
 *.json text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+backend/app/ml/** text eol=lf
+
+backend/model_artifacts/** binary
+*.joblib binary
+*.png binary
+backend/model_artifacts/**/*.json text eol=lf
+backend/model_artifacts/**/*.yaml text eol=lf
+backend/model_artifacts/**/code/*.py text eol=lf
+backend/model_artifacts/**/*.txt text eol=lf
+
