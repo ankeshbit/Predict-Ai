@@ -26,8 +26,8 @@ This guide covers end-to-end production deployment: Neon PostgreSQL, Render/Rail
 |:---|:---:|:---|:---|
 | `ENVIRONMENT` | **MANDATORY** | Must be `production` | `production` |
 | `SECRET_KEY` | **MANDATORY** | Hex token ≥ 32 chars for signing JWTs. **Never use a default.** | `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `DATABASE_URL` | **MANDATORY** | **Pooled** Neon URL (via PgBouncer). Used by the FastAPI app at runtime. | `postgresql+psycopg://user:pass@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require` |
-| `DATABASE_URL_DIRECT` | **MANDATORY** | **Direct** Neon URL (non-pooled). Used exclusively by Alembic migrations. | `postgresql+psycopg://user:pass@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require` |
+| `DATABASE_URL` | **MANDATORY** | **Pooled** Neon URL (via PgBouncer). Used by the FastAPI app at runtime. | `postgresql+psycopg://USER:PASSWORD@POOLER_HOST/DB?sslmode=require` |
+| `DATABASE_URL_DIRECT` | **MANDATORY** | **Direct** Neon URL (non-pooled). Used exclusively by Alembic migrations. | `postgresql+psycopg://USER:PASSWORD@DIRECT_HOST/DB?sslmode=require` |
 | `CORS_ORIGINS` | **MANDATORY** | Comma-separated list of allowed frontend origins | `https://predict-ai.vercel.app` |
 | `MODEL_ARTIFACTS_DIR` | recommended | Path to model bundles inside container | `/app/model_artifacts` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | optional | JWT token TTL (default 60) | `60` |
@@ -35,7 +35,8 @@ This guide covers end-to-end production deployment: Neon PostgreSQL, Render/Rail
 
 > **Neon URL anatomy**:
 > - **Pooled** (PgBouncer): hostname contains `-pooler` — use for `DATABASE_URL`
-> - **Direct**: standard hostname — use for `DATABASE_URL_DIRECT` (Alembic)
+> - **Direct**: standard hostname without `-pooler` — use for `DATABASE_URL_DIRECT` (Alembic)
+
 
 ### 2.2 Frontend — Vercel
 
