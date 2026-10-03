@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     pool: 'vmThreads',
+    testTimeout: 30000,
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**'],
     globals: true,

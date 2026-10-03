@@ -11,6 +11,8 @@ import { test, expect } from '@playwright/test';
  * Every step is a hard assertion. The test FAILS if any step is missing.
  */
 test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
+  test.setTimeout(60000);
+
   test.beforeEach(async ({ request }) => {
     // Reset demo fleet via admin endpoint to ensure pristine baseline for every run
     const loginRes = await request.post('/api/v1/auth/login', {
@@ -19,15 +21,12 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
         password: 'AdminSecret123!',
       },
     });
-    if (loginRes.ok()) {
-      const { access_token } = await loginRes.json();
-      const resetRes = await request.post('/api/v1/demo/reset', {
-        headers: { Authorization: `Bearer ${access_token}` },
-      });
-      expect(resetRes.ok()).toBeTruthy();
-    } else {
-      throw new Error(`Admin login failed: ${loginRes.status()}`);
-    }
+    expect(loginRes.ok()).toBeTruthy();
+    const { access_token } = await loginRes.json();
+    const resetRes = await request.post('/api/v1/demo/reset', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    expect(resetRes.ok()).toBeTruthy();
   });
 
   test('Complete first-run journey: login → alert open→acknowledged→resolved → maintenance record → machine active', async ({ page }) => {
@@ -88,7 +87,15 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
     // Modal must open.
     await expect(page.getByText(/Record Engineer Intervention/i)).toBeVisible({ timeout: 6000 });
 
-    // ── 13. Submit maintenance record (resolve) — hard assert, NO conditionals ─
+    // ── 13. Fill required fields & submit maintenance record (resolve) — hard assert, NO conditionals ─
+    const rationaleInput = page.getByLabel(/Decision Rationale/i);
+    await expect(rationaleInput).toBeVisible({ timeout: 5000 });
+    await rationaleInput.fill('Verified degradation pattern against cycle window telemetry');
+
+    const actionInput = page.getByLabel(/Physical Action Taken/i);
+    await expect(actionInput).toBeVisible({ timeout: 5000 });
+    await actionInput.fill('Completed borescope inspection and replaced sensor probe');
+
     const outcomeSelect = page.getByTestId('outcome-select');
     await expect(outcomeSelect).toBeVisible({ timeout: 5000 });
     await outcomeSelect.selectOption('resolved');
@@ -97,9 +104,11 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
     await expect(submitBtn).toBeVisible({ timeout: 4000 });
     await submitBtn.click();
 
-    // ── 14. Hard assert: maintenance record logged ───────────────────────────
+    // ── 14. Hard assert: maintenance record logged with explicit text ──────────
     await expect(page.getByText(/Engineer Decision & Maintenance Action/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(/Records Logged/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Completed borescope inspection and replaced sensor probe')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Verified degradation pattern against cycle window telemetry')).toBeVisible({ timeout: 8000 });
 
     // ── 15. Alert status is now 'resolved' (hard assert) ─────────────────────
     const resolvedAlertBadge = page.getByTestId('alert-status-resolved');

@@ -39,8 +39,8 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
 }) => {
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [decision, setDecision] = useState<'followed_recommendation' | 'modified' | 'declined'>('followed_recommendation');
-  const [decisionRationale, setDecisionRationale] = useState('Verified sensor drift across cycle window.');
-  const [actionTaken, setActionTaken] = useState('Borescope inspection and sensor calibration performed.');
+  const [decisionRationale, setDecisionRationale] = useState('');
+  const [actionTaken, setActionTaken] = useState('');
   const [maintenanceOutcome, setMaintenanceOutcome] = useState<'resolved' | 'unresolved' | 'no_issue_found'>('resolved');
   const [notes, setNotes] = useState('');
 
@@ -52,6 +52,9 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
   // Submit maintenance record
   const handleSaveMaintenance = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!decisionRationale.trim() || !actionTaken.trim()) {
+      return;
+    }
     onRecordMaintenance({
       machineId: machine.id,
       machineCode: machine.machineCode,
@@ -59,8 +62,8 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
       issue: (activeAlert || latestAlert) ? (activeAlert || latestAlert).message : 'Condition assessment inspection',
       recommendedAction: machine.recommendation.text,
       decision,
-      decisionRationale: decisionRationale || 'Verified sensor drift across cycle window.',
-      actionTaken: actionTaken || 'Borescope inspection of turbine and sensor calibration performed.',
+      decisionRationale: decisionRationale.trim(),
+      actionTaken: actionTaken.trim(),
       performedBy: currentUserRole === 'admin' ? 'admin@demo.internal' : 'engineer@demo.internal',
       status: maintenanceOutcome === 'unresolved' ? 'in_progress' : 'completed',
       outcome: maintenanceOutcome,
@@ -319,6 +322,9 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
                       <Badge value={rec.outcome} size="xs" />
                     </div>
                     <p className="text-slate-300">{rec.actionTaken}</p>
+                    {rec.decisionRationale && (
+                      <p className="text-slate-400 text-[11px] font-mono">Rationale: {rec.decisionRationale}</p>
+                    )}
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-[#17202e]">
                       <span>By: {rec.performedBy}</span>
                       <span>Status: <strong className="text-slate-300 uppercase">{rec.status}</strong></span>
@@ -389,6 +395,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             placeholder="Explain why this decision was reached..."
             value={decisionRationale}
             onChange={(e) => setDecisionRationale(e.target.value)}
+            required
           />
 
           <Input
@@ -396,6 +403,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             placeholder="Detailed description of inspection or repair..."
             value={actionTaken}
             onChange={(e) => setActionTaken(e.target.value)}
+            required
           />
 
           <Select
