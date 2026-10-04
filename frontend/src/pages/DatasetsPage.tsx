@@ -68,54 +68,62 @@ export const DatasetsPage: React.FC<DatasetsPageProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#18212e]">
-              {datasets.map((ds) => {
-                const isRejected = ds.status === 'rejected_incompatible';
+              {datasets.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-slate-500 font-mono text-xs">
+                    No registered datasets found in registry.
+                  </td>
+                </tr>
+              ) : (
+                datasets.map((ds) => {
+                  const isRejected = ds.status === 'rejected_incompatible';
 
-                return (
-                  <tr key={ds.id} className="hover:bg-[#161d29] transition-colors">
-                    <td className="py-2.5 px-3">
-                      <div className="font-semibold text-slate-100">{ds.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{ds.version}</div>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-300">{ds.adapterKey}</td>
-                    <td className="py-2.5 px-3">
-                      <Badge variant="demo" size="xs">
-                        {ds.dataOrigin}
-                      </Badge>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-300">
-                      {ds.rowCount.toLocaleString()} rows
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-300">
-                      {ds.unitCount} units
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
-                          isRejected
-                            ? 'bg-rose-950/70 text-rose-300 border border-rose-800'
-                            : 'bg-emerald-950/70 text-emerald-300 border border-emerald-800'
-                        }`}
-                      >
-                        {ds.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
-                      {ds.checksumSha256.slice(0, 14)}...
-                    </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <Button
-                        variant={isRejected ? 'danger' : 'secondary'}
-                        size="xs"
-                        onClick={() => onViewSchemaMapping(ds.id)}
-                        icon={<ArrowRight className="w-3 h-3" />}
-                      >
-                        {isRejected ? 'Blocking Matrix' : 'View Mapping'}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })}
+                  return (
+                    <tr key={ds.id} className="hover:bg-[#161d29] transition-colors">
+                      <td className="py-2.5 px-3">
+                        <div className="font-semibold text-slate-100">{ds.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{ds.version}</div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-300">{ds.adapterKey}</td>
+                      <td className="py-2.5 px-3">
+                        <Badge variant="demo" size="xs">
+                          {ds.dataOrigin}
+                        </Badge>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-300">
+                        {ds.rowCount.toLocaleString()} rows
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-slate-300">
+                        {ds.unitCount} units
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+                            isRejected
+                              ? 'bg-rose-950/70 text-rose-300 border border-rose-800'
+                              : 'bg-emerald-950/70 text-emerald-300 border border-emerald-800'
+                          }`}
+                        >
+                          {ds.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[10px] text-slate-500">
+                        {ds.checksumSha256.slice(0, 14)}...
+                      </td>
+                      <td className="py-2.5 px-3 text-right">
+                        <Button
+                          variant={isRejected ? 'danger' : 'secondary'}
+                          size="xs"
+                          onClick={() => onViewSchemaMapping(ds.id)}
+                          icon={<ArrowRight className="w-3 h-3" />}
+                        >
+                          {isRejected ? 'Blocking Matrix' : 'View Mapping'}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
-from app.ml.pdm_recommendation import recommend_maintenance
-from app.models.entities import Alert, AlertRule
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.ml.pdm_recommendation import recommend_maintenance
+from app.models.entities import Alert, AlertRule
 
 logger = logging.getLogger("predicore.alerts")
 

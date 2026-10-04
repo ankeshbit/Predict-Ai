@@ -7,6 +7,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError, ValidationError
@@ -26,9 +30,6 @@ from app.schemas.settings import (
     ReliabilityConfigResponse,
     RiskBandsConfig,
 )
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 settings_router = APIRouter(prefix="/settings", tags=["Settings"])
 admin_router = APIRouter(prefix="/admin", tags=["Admin"])

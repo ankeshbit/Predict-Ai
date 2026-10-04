@@ -26,17 +26,17 @@ export interface HealthComponents {
 export interface PredictionLineage {
   machineCode: string;
   datasetName: string;
-  datasetVersion: string;
-  schemaMappingHash: string;
-  featureConfigVersion: string;
-  preprocessingVersion: string;
-  failureModelVersion: string;
-  anomalyModelVersion: string;
-  predictionHorizon: number;
-  predictionHorizonUnit: string;
-  asOfCycle: number;
+  datasetVersion: string | null;
+  schemaMappingHash: string | null;
+  featureConfigVersion: string | null;
+  preprocessingVersion: string | null;
+  failureModelVersion: string | null;
+  anomalyModelVersion: string | null;
+  predictionHorizon: number | null;
+  predictionHorizonUnit: string | null;
+  asOfCycle: number | null;
   predictedAt: string;
-  inputWindowLength: number;
+  inputWindowLength: number | null;
 }
 
 export interface PredictionExplanation {
@@ -56,19 +56,19 @@ export interface Machine {
   id: string;
   machineCode: string;
   name: string;
-  machineType: string; // "Turbofan engine (simulated)"
+  machineType: string;
   location: string;
   installDate: string;
   operationalStatus: MachineStatus;
-  healthIndicator: number; // 0 - 100
+  healthIndicator: number | null;
   healthBand: HealthBand;
   healthComponents: HealthComponents;
-  failureProbability: number; // 0.0 - 1.0 (calibrated)
-  predictionHorizon: number;  // cycles (e.g. 30)
+  failureProbability: number;   // 0.0 until first score, then real value
+  predictionHorizon: number | null;
   riskLevel: RiskLevel;
-  currentCycle: number;
-  anomalySeverity: number;    // 0.0 - 1.0
-  anomalyScore: number;
+  currentCycle: number | null;
+  anomalySeverity: number | null;
+  anomalyScore: number | null;
   anomalyStatus: 'normal' | 'warning' | 'anomaly';
   reliabilityStatus: ReliabilityStatus;
   reliabilityWarningReason?: string;

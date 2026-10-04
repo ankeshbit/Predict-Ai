@@ -1,16 +1,43 @@
+/**
+ * Machines API hooks with real-time polling and prediction enrichment.
+ *
+ * BackendMachine now includes latest prediction fields (failure_probability,
+ * risk_level, current_cycle, etc.) from the backend enrichment added in
+ * machines.py _machine_to_response().
+ */
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from './client';
+import { apiFetch, POLL_INTERVAL_MS } from './client';
 
 export interface BackendMachine {
   id: string;
   machine_code: string;
+  name?: string | null;
+  machine_type?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  source_unit_id?: number | null;
   operational_status: 'active' | 'maintenance' | 'archived';
-  health_indicator: number;
-  health_band: 'Critical' | 'Poor' | 'Warning' | 'Healthy' | 'Excellent';
+  health_indicator?: number | null;
+  health_band?: 'Critical' | 'Poor' | 'Warning' | 'Healthy' | 'Excellent' | null;
   is_demo: boolean;
   demo_cluster?: string | null;
   created_at: string;
   updated_at: string;
+  // Latest prediction enrichment — null when no prediction exists yet
+  failure_probability?: number | null;
+  risk_level?: string | null;
+  current_cycle?: number | null;
+  anomaly_score?: number | null;
+  anomaly_severity?: number | null;
+  reliability_status?: 'ok' | 'reduced' | null;
+  prediction_horizon?: number | null;
+  prediction_horizon_unit?: string | null;
+  schema_mapping_hash?: string | null;
+  feature_config_version?: string | null;
+  preprocessing_version?: string | null;
+  failure_model_version_id?: string | null;
+  anomaly_model_version_id?: string | null;
 }
 
 export interface MachineListResponse {
@@ -112,6 +139,8 @@ export function useMachines(params?: MachineFilterParams) {
   return useQuery({
     queryKey: ['machines', params],
     queryFn: () => apiFetch<MachineListResponse>(`/machines${queryStr}`),
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -120,6 +149,8 @@ export function useMachine(id?: string) {
     queryKey: ['machine', id],
     queryFn: () => apiFetch<BackendMachine>(`/machines/${id}`),
     enabled: !!id,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -137,8 +168,10 @@ export function useSensorHistory(
 
   return useQuery({
     queryKey: ['sensorHistory', id, params],
-    queryFn: () => apiFetch<any>(`/machines/${id}/sensors${queryStr}`),
+    queryFn: () => apiFetch<SensorHistoryResponse>(`/machines/${id}/sensors${queryStr}`),
     enabled: !!id,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -155,16 +188,23 @@ export function useMachineTelemetry(
 
   return useQuery({
     queryKey: ['machineTelemetry', id, params],
-    queryFn: () => apiFetch<any>(`/machines/${id}/sensors${queryStr}`),
+    queryFn: () => apiFetch<SensorHistoryResponse>(`/machines/${id}/sensors${queryStr}`),
     enabled: !!id,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
 export function useMachinePredictions(id?: string, limit = 50) {
   return useQuery({
     queryKey: ['machinePredictions', id, limit],
-    queryFn: () => apiFetch<{ items: PredictionResponse[]; total: number }>(`/machines/${id}/predictions?limit=${limit}`),
+    queryFn: () =>
+      apiFetch<{ items: PredictionResponse[]; total: number }>(
+        `/machines/${id}/predictions?limit=${limit}`
+      ),
     enabled: !!id,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -178,6 +218,7 @@ export function useScoreMachine() {
       queryClient.invalidateQueries({ queryKey: ['machines'] });
       queryClient.invalidateQueries({ queryKey: ['machinePredictions', machineId] });
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

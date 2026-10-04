@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from './client';
+import { apiFetch, POLL_INTERVAL_MS } from './client';
 
 export interface BackendAlert {
   id: string;
@@ -44,6 +44,8 @@ export function useAlerts(params?: AlertFilterParams) {
   return useQuery({
     queryKey: ['alerts', params],
     queryFn: () => apiFetch<AlertListResponse>(`/alerts${queryStr}`),
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 

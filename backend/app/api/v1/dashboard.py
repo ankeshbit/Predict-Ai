@@ -5,6 +5,10 @@ PRD §14.7: Fleet summary, priority at-risk machines, recent anomalies, alerts, 
 
 from typing import List
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.models.entities import Alert, Anomaly, Machine, Prediction, User
@@ -16,9 +20,6 @@ from app.schemas.dashboard import (
     RecentAlertItem,
     RecentAnomalyItem,
 )
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -43,6 +44,28 @@ def get_dashboard_summary(
     open_alerts = db.scalar(
         select(func.count(Alert.id)).where(Alert.status == "open")
     ) or 0
+    active_count = db.scalar(
+        select(func.count(Machine.id)).where(Machine.operational_status == "active")
+    ) or 0
+    maintenance_count = db.scalar(
+        select(func.count(Machine.id)).where(Machine.operational_status == "maintenance")
+    ) or 0
+
+    # Health band counts for distribution chart
+    all_bands = ["Excellent", "Healthy", "Warning", "Poor", "Critical"]
+    health_band_counts = {}
+    for band in all_bands:
+        health_band_counts[band] = db.scalar(
+            select(func.count(Machine.id)).where(Machine.health_band == band)
+        ) or 0
+
+    operational_counts = {
+        "active": active_count,
+        "maintenance": maintenance_count,
+        "archived": db.scalar(
+            select(func.count(Machine.id)).where(Machine.operational_status == "archived")
+        ) or 0,
+    }
 
     return DashboardSummaryResponse(
         total_machines=total_machines,
@@ -53,6 +76,10 @@ def get_dashboard_summary(
         open_alerts_count=open_alerts,
         dataset_banner_text="Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data",
         dataset_badge_text="Demo / Simulated Data",
+        health_band_counts=health_band_counts,
+        operational_counts=operational_counts,
+        active_count=active_count,
+        maintenance_count=maintenance_count,
     )
 
 

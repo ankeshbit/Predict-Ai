@@ -3,9 +3,13 @@ Machines API router: fleet listing, machine details, and telemetry history with 
 """
 
 import uuid
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
@@ -36,11 +40,47 @@ from app.schemas.predictions import (
     PredictionResponse,
 )
 from app.services.scoring_service import score_machine_trajectory
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/machines", tags=["Machines"])
+
+
+def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
+    """Fetch latest prediction for a machine and return enrichment fields."""
+    latest_pred = db.scalar(
+        select(Prediction)
+        .where(Prediction.machine_id == machine.id)
+        .order_by(Prediction.cycle.desc())
+        .limit(1)
+    )
+    if latest_pred is None:
+        return {}
+    # Determine reliability_status from flags
+    dq = latest_pred.reliability_flags.get("data_quality", "DATA_OK") if latest_pred.reliability_flags else "DATA_OK"
+    reliability_status = "ok" if dq == "DATA_OK" else "reduced"
+    # Anomaly severity = penalty_anomaly / 100 (normalised 0-1)
+    anomaly_severity = min(1.0, latest_pred.penalty_anomaly / 100.0)
+    return {
+        "failure_probability": latest_pred.failure_probability,
+        "risk_level": latest_pred.risk_level,
+        "current_cycle": latest_pred.cycle,
+        "anomaly_score": latest_pred.penalty_anomaly / 100.0,
+        "anomaly_severity": anomaly_severity,
+        "reliability_status": reliability_status,
+        "prediction_horizon": latest_pred.horizon,
+        "prediction_horizon_unit": latest_pred.horizon_unit,
+        "schema_mapping_hash": latest_pred.schema_mapping_hash,
+        "feature_config_version": latest_pred.feature_config_version,
+        "preprocessing_version": latest_pred.preprocessing_version,
+        "failure_model_version_id": str(latest_pred.failure_model_version_id),
+        "anomaly_model_version_id": str(latest_pred.anomaly_model_version_id) if latest_pred.anomaly_model_version_id else None,
+    }
+
+
+def _machine_to_response(machine: Machine, db: Session) -> MachineResponse:
+    """Build MachineResponse enriched with latest prediction."""
+    base = MachineResponse.model_validate(machine)
+    enrichment = _enrich_machine_response(machine, db)
+    return base.model_copy(update=enrichment)
 
 
 @router.get("", response_model=MachineListResponse)
@@ -70,7 +110,7 @@ def list_machines(
     items = db.scalars(stmt.order_by(Machine.machine_code).offset(offset).limit(limit)).all()
 
     return MachineListResponse(
-        items=[MachineResponse.model_validate(m) for m in items],
+        items=[_machine_to_response(m, db) for m in items],
         total=total,
     )
 
@@ -114,7 +154,7 @@ def get_machine(
     machine = db.get(Machine, machine_id)
     if not machine:
         raise NotFoundError(message=f"Machine with id {machine_id} not found")
-    return MachineResponse.model_validate(machine)
+    return _machine_to_response(machine, db)
 
 
 @router.patch("/{machine_id}", response_model=MachineResponse)
@@ -143,7 +183,7 @@ def update_machine(
 
     db.commit()
     db.refresh(machine)
-    return MachineResponse.model_validate(machine)
+    return _machine_to_response(machine, db)
 
 
 @router.post("/{machine_id}/archive", response_model=MachineResponse)
@@ -179,7 +219,7 @@ def archive_machine(
     machine.operational_status = "archived"
     db.commit()
     db.refresh(machine)
-    return MachineResponse.model_validate(machine)
+    return _machine_to_response(machine, db)
 
 
 @router.get("/{machine_id}/timeline", response_model=MachineTimelineResponse)

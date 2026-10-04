@@ -189,6 +189,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 disabled={loginMutation.isPending}
                 onClick={() => {
                   // Demo quick-login: fires directly without revealing credentials in form state
+                  handlePerformLogin('admin@predicore.internal', 'AdminSecret123!');
+                }}
+                className="w-full text-xs text-slate-200 justify-center"
+              >
+                Sign In as Administrator (Fleet Control)
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={loginMutation.isPending}
+                onClick={() => {
+                  // Demo quick-login: fires directly without revealing credentials in form state
                   handlePerformLogin('engineer@predicore.internal', 'EngineerSecurePass123!');
                 }}
                 className="w-full text-xs text-slate-200 justify-center"

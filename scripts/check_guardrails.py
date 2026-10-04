@@ -159,12 +159,94 @@ def check_secrets_hygiene():
     return True
 
 
+def check_frontend_live_data():
+    """
+    Enforces Live Data Guardrail:
+    frontend/src (excluding tests) must NOT contain:
+    - Math.random
+    - 'ds-ai4i-sample' style ids
+    - arrays of object literals with machine/alert/metric-like keys
+    - forbidden strings: 'mockData', 'dummy', 'sample data' (case-insensitive, except PRD banner)
+    """
+    src_dir = ROOT_DIR / "frontend" / "src"
+    if not src_dir.exists():
+        return True
+
+    violations = []
+
+    # 1. Simple line patterns
+    forbidden_line_patterns = [
+        (re.compile(r"\bMath\.random\s*\("), "Math.random call"),
+        (re.compile(r"['\"]?ds-[a-z0-9_-]*sample['\"]?"), "sample dataset id ('ds-*-sample')"),
+        (re.compile(r"\bmockData\b", re.IGNORECASE), "mockData identifier"),
+        (re.compile(r"\bdummy\b", re.IGNORECASE), "dummy keyword"),
+        (re.compile(r"\bsample\s+data\b", re.IGNORECASE), "'sample data' literal"),
+    ]
+
+    # 2. Literal arrays of machine/alert/metric objects
+    # Matches hardcoded arrays of mock entities: e.g. [ { machineCode: '...', failureProbability: ... } ]
+    array_literal_pattern = re.compile(
+        r"\[\s*\{\s*(?:[a-zA-Z0-9_]+\s*:\s*[^,}]+,\s*)*(?:machineCode|machine_code|failureProbability|healthIndicator|healthBand|recommendationText|recommendationRuleId|trigger_score|asOfCycle)\s*:\s*['\"\d]",
+        re.MULTILINE
+    )
+
+    for file_path in src_dir.rglob("*"):
+        if not file_path.is_file() or file_path.suffix not in [".ts", ".tsx", ".js", ".jsx"]:
+            continue
+
+        rel_path = file_path.relative_to(ROOT_DIR)
+        rel_str = str(rel_path).replace("\\", "/")
+
+        # Exclude test files
+        if "/tests/" in rel_str or "/__tests__/" in rel_str or ".test." in rel_str or ".spec." in rel_str:
+            continue
+
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        lines = content.splitlines()
+        for line_idx, line in enumerate(lines, 1):
+            # Exclude exact PRD banner text and badge
+            if "Demo Dataset: NASA C-MAPSS FD001" in line or "Demo / Simulated Data" in line:
+                continue
+
+            for pat, desc in forbidden_line_patterns:
+                m = pat.search(line)
+                if m:
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden pattern ({desc}): '{m.group(0)}' in: {line.strip()[:100]}"
+                    )
+
+        # Check array of object literals
+        for match in array_literal_pattern.finditer(content):
+            start_pos = match.start()
+            line_idx = content[:start_pos].count("\n") + 1
+            matched_snippet = content[start_pos:start_pos+100].replace("\n", " ")
+            violations.append(
+                f"{rel_str}:{line_idx} - Found hardcoded object array literal: {matched_snippet}..."
+            )
+
+    if violations:
+        print("[-] FAILED: Hardcoded mock/dummy/sample data detected in frontend/src:")
+        for v in violations:
+            print(f"    {v}")
+        return False
+
+    print("[+] PASSED: Frontend live-data check passed (zero Math.random, dummy, mockData, or hardcoded object arrays).")
+    return True
+
+
 def main():
     success = True
     if not check_physical_sensor_semantics():
         success = False
 
     if not check_secrets_hygiene():
+        success = False
+
+    if not check_frontend_live_data():
         success = False
 
     if not success:
@@ -175,4 +257,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

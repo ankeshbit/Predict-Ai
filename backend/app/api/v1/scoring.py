@@ -5,15 +5,16 @@ Executes asynchronous batch scoring runs on compatible datasets.
 
 import uuid
 
+from fastapi import APIRouter, BackgroundTasks, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_admin
 from app.core.db import get_db
 from app.core.errors import ConflictError, DatasetIncompatibleError, NotFoundError
 from app.models.entities import Dataset, Job, ModelVersion, User
 from app.schemas.scoring import ScoringRunRequest, ScoringRunResponse
 from app.services.scoring_service import run_scoring_job
-from fastapi import APIRouter, BackgroundTasks, Depends
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/scoring-runs", tags=["Scoring Runs"])
 legacy_scoring_router = APIRouter(prefix="/scoring", tags=["Scoring Runs"])

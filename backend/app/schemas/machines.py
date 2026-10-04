@@ -29,6 +29,20 @@ class MachineResponse(BaseModel):
     demo_cluster: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    # Latest prediction enrichment (populated by list/get endpoints)
+    failure_probability: Optional[float] = None
+    risk_level: Optional[str] = None
+    current_cycle: Optional[int] = None
+    anomaly_score: Optional[float] = None
+    anomaly_severity: Optional[float] = None
+    reliability_status: Optional[str] = None
+    prediction_horizon: Optional[int] = None
+    prediction_horizon_unit: Optional[str] = None
+    schema_mapping_hash: Optional[str] = None
+    feature_config_version: Optional[str] = None
+    preprocessing_version: Optional[str] = None
+    failure_model_version_id: Optional[str] = None
+    anomaly_model_version_id: Optional[str] = None
 
 
 class MachineCreateRequest(BaseModel):

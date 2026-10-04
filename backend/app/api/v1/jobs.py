@@ -4,13 +4,14 @@ Jobs API router: status polling for background tasks
 
 import uuid
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
 from app.models.entities import Job, User
 from app.schemas.jobs import JobResponse
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 

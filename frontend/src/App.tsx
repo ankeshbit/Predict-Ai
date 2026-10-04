@@ -31,15 +31,22 @@ import {
 import { Loader2 } from 'lucide-react';
 
 function mapBackendMachineToMachine(bm: any): Machine {
+  // Risk level fallback: derive from failure_probability if backend doesn't provide it
+  const rawRiskLevel = bm.risk_level ?? null;
+  const failureProb: number = bm.failure_probability ?? 0.0;
+  const derivedRiskLevel =
+    rawRiskLevel ??
+    (failureProb >= 0.7 ? 'Critical' : failureProb >= 0.4 ? 'Warning' : 'Low');
+
   return {
     id: bm.id,
     machineCode: bm.machine_code,
     name: bm.name || bm.machine_code,
-    machineType: bm.machine_type || 'Turbofan Engine',
-    location: bm.location || 'Test Facility 1',
-    installDate: bm.install_date || bm.created_at,
-    operationalStatus: bm.operational_status || 'active',
-    healthIndicator: bm.health_indicator ?? 100,
+    machineType: bm.machine_type || 'Turbofan engine (simulated)',
+    location: bm.location || 'Test Cell',
+    installDate: bm.install_date ?? bm.created_at,
+    operationalStatus: bm.operational_status ?? 'active',
+    healthIndicator: bm.health_indicator ?? null,
     healthBand: bm.health_band || 'Healthy',
     healthComponents: {
       failureRiskPenalty: 0,
@@ -47,21 +54,23 @@ function mapBackendMachineToMachine(bm: any): Machine {
       trendPenalty: 0,
       otherPenalty: 0,
     },
-    failureProbability: 0.0,
-    predictionHorizon: 30,
-    riskLevel: 'Low',
-    currentCycle: 1,
-    anomalySeverity: 0.0,
-    anomalyScore: 0.0,
-    anomalyStatus: 'normal',
-    reliabilityStatus: 'ok',
-    datasetBadge: 'NASA C-MAPSS FD001 (Simulated)',
+    failureProbability: failureProb,
+    predictionHorizon: bm.prediction_horizon ?? null,
+    riskLevel: derivedRiskLevel,
+    currentCycle: bm.current_cycle ?? null,
+    anomalySeverity: bm.anomaly_severity ?? null,
+    anomalyScore: bm.anomaly_score ?? null,
+    anomalyStatus: bm.anomaly_score != null && bm.anomaly_score > 0.5 ? 'anomaly' : 'normal',
+    reliabilityStatus: bm.reliability_status ?? 'ok',
+    datasetBadge: 'Demo / Simulated Data',
     lastUpdated: bm.updated_at,
     explanation: {
       headline: `Unit ${bm.machine_code} status`,
       topContributingFeatures: [],
       trendFacts: [],
-      summaryText: 'Scored telemetry available in predictive inference engine.',
+      summaryText: bm.current_cycle != null
+        ? `Latest scored at cycle ${bm.current_cycle}.`
+        : 'No prediction available yet. Score the machine to see results.',
     },
     recommendation: {
       ruleId: 'RULE_NOMINAL',
@@ -72,20 +81,21 @@ function mapBackendMachineToMachine(bm: any): Machine {
     lineage: {
       machineCode: bm.machine_code,
       datasetName: 'NASA C-MAPSS FD001',
-      datasetVersion: 'v1.0',
-      schemaMappingHash: 'cmapss-fd001-canonical-sha256',
-      featureConfigVersion: 'v1.0',
-      preprocessingVersion: 'v1.0',
-      failureModelVersion: 'fd001-failure-v1',
-      anomalyModelVersion: 'fd001-anomaly-v1',
-      predictionHorizon: 30,
-      predictionHorizonUnit: 'operating cycles',
-      asOfCycle: 1,
+      datasetVersion: '1.0',
+      schemaMappingHash: bm.schema_mapping_hash ?? null,
+      featureConfigVersion: bm.feature_config_version ?? null,
+      preprocessingVersion: bm.preprocessing_version ?? null,
+      failureModelVersion: bm.failure_model_version_id ?? null,
+      anomalyModelVersion: bm.anomaly_model_version_id ?? null,
+      predictionHorizon: bm.prediction_horizon ?? null,
+      predictionHorizonUnit: bm.prediction_horizon_unit ?? null,
+      asOfCycle: bm.current_cycle ?? null,
       predictedAt: bm.updated_at,
-      inputWindowLength: 30,
+      inputWindowLength: null,
     },
   };
 }
+
 
 function mapBackendAlertToAlert(ba: any, machineCode = 'FD001-Unit'): Alert {
   return {
@@ -196,9 +206,9 @@ export function App() {
   const effectiveSelectedId = selectedMachineId || machines[0]?.id || '';
   const selectedMachine = machines.find((m) => m.id === effectiveSelectedId) || machines[0];
 
-  // Telemetry for selected machine
   const { data: sensorHistoryData } = useSensorHistory(effectiveSelectedId, { downsample_to: 100 });
-  const sensorHistory = (sensorHistoryData?.readings || []).map((r: any) => ({
+  const rawPoints = sensorHistoryData?.points || (sensorHistoryData as any)?.readings || [];
+  const sensorHistory = rawPoints.map((r: any) => ({
     cycle: r.cycle,
     sensor_1: r.sensors?.sensor_1,
     sensor_2: r.sensors?.sensor_2,

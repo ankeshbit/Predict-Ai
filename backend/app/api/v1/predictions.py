@@ -5,6 +5,10 @@ Predictions & Explainability API Router (PRD §14.4)
 import uuid
 from typing import List, Optional
 
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
@@ -16,9 +20,6 @@ from app.schemas.predictions import (
     PredictionResponse,
 )
 from app.services.explanation_service import compute_prediction_explanation
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["Predictions & Explainability"])
 

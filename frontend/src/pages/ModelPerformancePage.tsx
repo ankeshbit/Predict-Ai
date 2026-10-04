@@ -18,16 +18,30 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
   activeModels: propActiveModels,
 }) => {
   const { data: apiActiveModels } = useActiveModels();
-  const activeModels = propActiveModels || (apiActiveModels || []).map((m) => ({
-    id: m.id,
-    version: m.bundle_version,
-    task: m.task,
-    modelType: m.model_type,
-    isActive: m.is_active,
-    createdAt: m.created_at,
-    artifactPath: `/model_artifacts/${m.bundle_version}`,
-    sha256: m.sha256_hash,
-  }));
+  const activeModels: ModelVersion[] = (propActiveModels && propActiveModels.length > 0)
+    ? propActiveModels
+    : (apiActiveModels || []).map((m: any) => ({
+        id: m.id,
+        name: m.model_name || m.bundle_version,
+        version: m.bundle_version,
+        task: m.task,
+        modelType: m.model_type,
+        adapterKey: m.adapter_key || 'cmapss_fd001',
+        status: m.is_active ? 'active' : 'registered',
+        horizon: m.prediction_horizon ?? m.horizon ?? 30,
+        horizonUnit: m.prediction_horizon_unit ?? m.horizon_unit ?? 'cycles',
+        decisionThreshold: m.decision_threshold ?? 0.10,
+        trainingDataset: 'NASA C-MAPSS FD001',
+        trainingDate: m.created_at,
+        gitCommit: 'HEAD',
+        modelCard: {
+          targetDefinition: 'Failure within H cycles',
+          calibrationInfo: 'Platt Sigmoid Calibrated',
+          featuresUsed: [],
+          intendedUse: 'Simulated turbofan fleet risk screening',
+          limitations: 'Trained exclusively on C-MAPSS FD001 simulation run-to-failure.',
+        },
+      }));
 
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [selectedSet, setSelectedSet] = useState<EvalSetKey>('internal_test');
@@ -189,18 +203,22 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Prediction Horizon</span>
-          <span className="font-mono font-semibold text-blue-400 mt-0.5 block">H = 30 Cycles</span>
+          <span className="font-mono font-semibold text-blue-400 mt-0.5 block">
+            {activeModel.horizon != null ? `H = ${activeModel.horizon} ${activeModel.horizonUnit ?? 'cycles'}` : 'H = N/A'}
+          </span>
           <span className="text-[11px] text-slate-400 font-mono">Configured, not optimized</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Evaluated At</span>
-          <span className="font-mono text-slate-200 mt-0.5 block truncate">{(evaluation as any).evaluated_at || (evaluation as any).evaluatedAt || 'Kaggle (or Colab)'}</span>
+          <span className="font-mono text-slate-200 mt-0.5 block truncate">{(evaluation as any).evaluated_at || (evaluation as any).evaluatedAt || 'Offline Evaluation'}</span>
           <span className="text-[11px] text-slate-400 font-mono">Offline execution</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Calibration Method</span>
-          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">Platt Scaling (Sigmoid)</span>
-          <span className="text-[11px] text-slate-400 font-mono">Decision Threshold: 0.10</span>
+          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">{(evaluation as any).calibration_method ?? 'Platt Scaling (Sigmoid)'}</span>
+          <span className="text-[11px] text-slate-400 font-mono">
+            Decision Threshold: {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
+          </span>
         </div>
       </div>
 
@@ -250,13 +268,17 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
           <div className="text-[10px] text-slate-400 font-mono uppercase font-semibold">2. Precision</div>
           <div className="text-xl font-bold font-mono text-slate-100 mt-1">{metrics.precision}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">At threshold 0.10</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+            At threshold {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
+          </div>
         </div>
 
         <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
           <div className="text-[10px] text-slate-400 font-mono uppercase font-semibold">3. Recall</div>
           <div className="text-xl font-bold font-mono text-slate-100 mt-1">{metrics.recall}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">At threshold 0.10</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+            At threshold {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
+          </div>
         </div>
 
         <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
@@ -290,7 +312,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
           Secondary Benchmark: <strong className="text-slate-200">Accuracy = {metrics.accuracy}</strong> (imbalance-sensitive; non-primary)
         </span>
         <span className="text-slate-500 text-[11px]">
-          Operating decision threshold: <strong>0.10</strong> &bull; Calibration: Platt Sigmoid
+          Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method ?? 'Platt Sigmoid'}
         </span>
       </div>
 
@@ -299,7 +321,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
 
       {/* Analytical Charts: Calibration Curve & Confusion Matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CalibrationPlot data={calData} brierScore={Number(metrics.brierScore) || 0.0245} />
+        <CalibrationPlot data={calData} brierScore={Number(metrics.brierScore) || 0} />
 
         <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
           <div>
@@ -379,8 +401,14 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
                   </td>
                   <td className="py-2.5 text-slate-300">{m.modelType}</td>
                   <td className="py-2.5 text-slate-400 truncate max-w-xs">{m.version}</td>
-                  <td className="py-2.5 text-blue-400">{m.task === 'failure_risk' ? 'H = 30 cycles' : 'N/A'}</td>
-                  <td className="py-2.5 text-slate-300">{m.task === 'failure_risk' ? '0.10' : '0.50'}</td>
+                  <td className="py-2.5 text-blue-400">
+                    {m.task === 'failure_risk' && (m as any).horizon != null
+                      ? `H = ${(m as any).horizon} ${(m as any).horizon_unit ?? 'cycles'}`
+                      : 'N/A'}
+                  </td>
+                  <td className="py-2.5 text-slate-300">
+                    {(m as any).decision_threshold != null ? (m as any).decision_threshold.toFixed(2) : '—'}
+                  </td>
                   <td className="py-2.5 text-slate-500 truncate max-w-[120px]" title={(m as any).sha256}>
                     {(m as any).sha256 ? `${(m as any).sha256.slice(0, 12)}...` : '—'}
                   </td>

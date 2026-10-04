@@ -132,87 +132,101 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#182130]">
-                {filteredMachines.map((m) => {
-                  const isCritical = m.riskLevel === 'Critical';
+                {filteredMachines.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-500 font-mono text-xs">
+                      No machines found in fleet registry.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMachines.map((m) => {
+                    const isCritical = m.riskLevel === 'Critical';
 
-                  return (
-                    <tr
-                      key={m.id}
-                      onClick={() => onSelectMachine(m.id)}
-                      className={`group cursor-pointer transition-colors ${
-                        isCritical ? 'bg-red-950/10 hover:bg-red-950/20' : 'hover:bg-[#141b27]'
-                      }`}
-                    >
-                      <td className="py-3 px-4 whitespace-nowrap font-mono font-semibold text-slate-100 group-hover:text-blue-400 transition-colors">
-                        {m.machineCode}
-                      </td>
+                    return (
+                      <tr
+                        key={m.id}
+                        onClick={() => onSelectMachine(m.id)}
+                        className={`group cursor-pointer transition-colors ${
+                          isCritical ? 'bg-red-950/10 hover:bg-red-950/20' : 'hover:bg-[#141b27]'
+                        }`}
+                      >
+                        <td className="py-3 px-4 whitespace-nowrap font-mono font-semibold text-slate-100 group-hover:text-blue-400 transition-colors">
+                          {m.machineCode}
+                        </td>
 
-                      <td className="py-3 px-4">
-                        <div className="text-slate-200 font-medium">{m.name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{m.location}</div>
-                      </td>
+                        <td className="py-3 px-4">
+                          <div className="text-slate-200 font-medium">{m.name}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">{m.location}</div>
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <Badge value={m.operationalStatus} size="sm" />
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <Badge value={m.operationalStatus} size="sm" />
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-slate-100">{m.healthIndicator}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">/ 100</span>
-                          <Badge value={m.healthBand} size="sm" />
-                        </div>
-                        <div className="w-28 h-1 bg-[#1a2333] rounded-full mt-1.5 overflow-hidden">
-                          <div
-                            className={`h-full ${
-                              m.healthIndicator >= 80
-                                ? 'bg-emerald-500'
-                                : m.healthIndicator >= 60
-                                ? 'bg-amber-500'
-                                : 'bg-red-500'
-                            }`}
-                            style={{ width: `${m.healthIndicator}%` }}
-                          />
-                        </div>
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-slate-100">
+                              {m.healthIndicator != null ? m.healthIndicator : '—'}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">/ 100</span>
+                            <Badge value={m.healthBand} size="sm" />
+                          </div>
+                          <div className="w-28 h-1 bg-[#1a2333] rounded-full mt-1.5 overflow-hidden">
+                            <div
+                              className={`h-full ${
+                                (m.healthIndicator ?? 0) >= 80
+                                  ? 'bg-emerald-500'
+                                  : (m.healthIndicator ?? 0) >= 60
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, m.healthIndicator ?? 0))}%` }}
+                            />
+                          </div>
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-blue-400">
-                        {(m.failureProbability * 100).toFixed(0)}%
-                        <span className="text-[10px] text-slate-400 font-normal ml-1 font-mono">
-                          ({m.riskLevel})
-                        </span>
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-blue-400">
+                          {m.failureProbability != null ? `${(m.failureProbability * 100).toFixed(0)}%` : '—'}
+                          <span className="text-[10px] text-slate-400 font-normal ml-1 font-mono">
+                            ({m.riskLevel})
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">
-                        {m.anomalyScore.toFixed(3)}
-                        <span className={`ml-1 text-[10px] ${m.anomalyStatus === 'anomaly' ? 'text-red-400' : 'text-slate-400'}`}>
-                          &bull; {m.anomalyStatus}
-                        </span>
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">
+                          {m.anomalyScore != null ? m.anomalyScore.toFixed(3) : '—'}
+                          <span className={`ml-1 text-[10px] ${m.anomalyStatus === 'anomaly' ? 'text-red-400' : 'text-slate-400'}`}>
+                            &bull; {m.anomalyStatus}
+                          </span>
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">
-                        #{m.currentCycle}
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">
+                          #{m.currentCycle != null ? m.currentCycle : '—'}
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <Badge value={m.reliabilityStatus} size="sm" />
-                      </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <Badge value={m.reliabilityStatus} size="sm" />
+                        </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap text-right">
-                        <button
-                          type="button"
-                          onClick={() => onSelectMachine(m.id)}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          Workstation <ExternalLink className="w-3 h-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <td className="py-3 px-4 whitespace-nowrap text-right">
+                          <button
+                            type="button"
+                            onClick={() => onSelectMachine(m.id)}
+                            className="text-xs text-blue-400 hover:text-blue-300 font-medium inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            Workstation <ExternalLink className="w-3 h-3" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
+        </div>
+      ) : filteredMachines.length === 0 ? (
+        <div className="py-12 text-center rounded-lg border border-[#1f2838] bg-[#111620] text-slate-500 font-mono text-xs">
+          No machines found in fleet registry.
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -242,7 +256,8 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                     <div className="p-2 rounded bg-[#0e141f] border border-[#1b2536]">
                       <div className="text-[10px] text-slate-400 uppercase font-mono">Health Score</div>
                       <div className="font-mono font-bold text-base text-slate-100 mt-0.5">
-                        {m.healthIndicator} <span className="text-[10px] text-slate-400 font-normal">/100</span>
+                        {m.healthIndicator != null ? m.healthIndicator : '—'}{' '}
+                        <span className="text-[10px] text-slate-400 font-normal">/100</span>
                       </div>
                       <Badge value={m.healthBand} size="sm" className="mt-1" />
                     </div>
@@ -250,14 +265,14 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                     <div className="p-2 rounded bg-[#0e141f] border border-[#1b2536]">
                       <div className="text-[10px] text-slate-400 uppercase font-mono">P(Fail) H=30</div>
                       <div className="font-mono font-bold text-base text-blue-400 mt-0.5">
-                        {(m.failureProbability * 100).toFixed(0)}%
+                        {m.failureProbability != null ? `${(m.failureProbability * 100).toFixed(0)}%` : '—'}
                       </div>
                       <Badge value={m.riskLevel} size="sm" className="mt-1" />
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 pt-1">
-                    <span>Cycle: #{m.currentCycle}</span>
+                    <span>Cycle: #{m.currentCycle != null ? m.currentCycle : '—'}</span>
                     <Badge value={m.reliabilityStatus} size="sm" />
                   </div>
                 </div>

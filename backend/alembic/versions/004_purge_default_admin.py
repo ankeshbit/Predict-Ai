@@ -8,6 +8,7 @@ Create Date: 2026-10-02 18:05:00.000000
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "004_purge_default_admin"

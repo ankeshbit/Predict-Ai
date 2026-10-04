@@ -17,6 +17,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.db import SessionLocal
 from app.core.errors import ConflictError, NotFoundError
 from app.ml.pdm_health import health_breakdown
@@ -34,8 +37,6 @@ from app.models.entities import (
     Setting,
 )
 from app.services.alert_service import evaluate_trajectory_alerts
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

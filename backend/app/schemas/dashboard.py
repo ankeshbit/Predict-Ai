@@ -19,6 +19,11 @@ class DashboardSummaryResponse(BaseModel):
     open_alerts_count: int
     dataset_banner_text: str
     dataset_badge_text: str
+    # Granular counts for frontend distribution chart
+    health_band_counts: dict  # e.g. {"Excellent": 2, "Healthy": 1, ...}
+    operational_counts: dict  # e.g. {"active": 7, "maintenance": 1, "archived": 0}
+    active_count: int
+    maintenance_count: int
 
 
 class PriorityMachineItem(BaseModel):

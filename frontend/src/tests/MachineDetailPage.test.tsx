@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import React from 'react';
 import { MachineDetailPage } from '../pages/MachineDetailPage';
 import type { Machine, Alert } from '../types';
 
@@ -76,11 +75,16 @@ const mockAlerts: Alert[] = [
     id: 'alt-048',
     machineId: 'mach-demo-48',
     machineCode: 'ENGINE-048',
+    machineName: 'Demo Engine 48',
+    type: 'high_failure_risk',
     severity: 'critical',
     status: 'open',
+    asOfCycle: 142,
+    triggeredAt: '2026-10-03T10:00:00Z',
     message: 'High Failure Probability (82.0%) within 30 cycles',
-    timestamp: '2026-10-03T10:00:00Z',
-    ruleId: 'REC-001',
+    reliabilityStatus: 'ok',
+    recommendationText: 'Perform borescope inspection.',
+    recommendationRuleId: 'REC-001',
   },
 ];
 
@@ -114,7 +118,7 @@ describe('MachineDetailPage Maintenance Form Validation', () => {
     const rationaleInput = screen.getByLabelText(/Decision Rationale/i) as HTMLInputElement;
     const actionInput = screen.getByLabelText(/Physical Action Taken/i) as HTMLInputElement;
 
-    // 4. Assert required attribute is present
+    // 4. Assert required attribute is present (PRD human-in-the-loop)
     expect(rationaleInput.required).toBe(true);
     expect(actionInput.required).toBe(true);
 
@@ -144,7 +148,7 @@ describe('MachineDetailPage Maintenance Form Validation', () => {
     // 10. Submit with both required fields filled
     fireEvent.click(saveBtn);
 
-    // 11. Assert onRecordMaintenance was called with explicit engineer input
+    // 11. Assert onRecordMaintenance was called with explicit engineer input (not boilerplate)
     expect(onRecordMaintenance).toHaveBeenCalledTimes(1);
     expect(onRecordMaintenance).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,5 +158,43 @@ describe('MachineDetailPage Maintenance Form Validation', () => {
         machineCode: 'ENGINE-048',
       })
     );
+  });
+
+  it('resets form fields to empty after successful submission', () => {
+    const onRecordMaintenance = vi.fn();
+
+    render(
+      <MachineDetailPage
+        machine={mockMachine}
+        alerts={mockAlerts}
+        maintenanceRecords={[]}
+        sensorHistory={[]}
+        onBack={vi.fn()}
+        currentUserRole="engineer"
+        onAcknowledgeAlert={vi.fn()}
+        onRecordMaintenance={onRecordMaintenance}
+      />
+    );
+
+    // Open modal
+    fireEvent.click(screen.getByRole('button', { name: /Record Maintenance Action/i }));
+
+    const rationaleInput = screen.getByLabelText(/Decision Rationale/i) as HTMLInputElement;
+    const actionInput = screen.getByLabelText(/Physical Action Taken/i) as HTMLInputElement;
+
+    // Fill both required fields
+    fireEvent.change(rationaleInput, { target: { value: 'Throttle stall detected.' } });
+    fireEvent.change(actionInput, { target: { value: 'Replaced HP compressor blade row 3.' } });
+
+    // Submit
+    fireEvent.click(screen.getByTestId('save-maintenance-btn'));
+
+    // onRecordMaintenance called once
+    expect(onRecordMaintenance).toHaveBeenCalledTimes(1);
+    const payload = onRecordMaintenance.mock.calls[0][0];
+    // Ensure no boilerplate text was injected
+    expect(payload.decisionRationale).toBe('Throttle stall detected.');
+    expect(payload.actionTaken).toBe('Replaced HP compressor blade row 3.');
+    expect(payload.notes).not.toBe('Logged to machine operational history.');
   });
 });

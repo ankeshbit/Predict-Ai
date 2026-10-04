@@ -1,9 +1,15 @@
 /**
  * Predict-Ai API Client
  * Centralized fetch client with JWT authentication, error handling, and type safety.
+ * Captures the HTTP Date header from responses for "Last updated" display.
  */
 
 const API_BASE = '/api/v1';
+
+/** Configurable polling interval (ms). Set VITE_POLL_INTERVAL_MS in .env to override. */
+export const POLL_INTERVAL_MS: number = Number(
+  (import.meta as any).env?.VITE_POLL_INTERVAL_MS ?? 7000
+);
 
 export interface ApiErrorResponse {
   error: {
@@ -39,6 +45,23 @@ export function setAuthToken(token: string | null): void {
   }
 }
 
+/** Formatted hh:mm:ss from the HTTP Date response header (server time, not client clock). */
+let _lastServerUpdateTime: string | null = null;
+export function getLastServerUpdateTime(): string | null {
+  return _lastServerUpdateTime;
+}
+
+function _formatServerDate(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -63,6 +86,15 @@ export async function apiFetch<T>(
     ...options,
     headers,
   });
+
+  // Capture server time from Date header (GET requests only, not mutations)
+  if (!options.method || options.method === 'GET') {
+    const serverDate = response.headers.get('Date');
+    const formatted = _formatServerDate(serverDate);
+    if (formatted) {
+      _lastServerUpdateTime = formatted;
+    }
+  }
 
   if (response.status === 204) {
     return {} as T;

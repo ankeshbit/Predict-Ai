@@ -8,11 +8,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.errors import NotFoundError
 from app.models.entities import Prediction, SensorReading
 from app.schemas.predictions import ExplanationResponse, FeatureContribution
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 
 def compute_prediction_explanation(

@@ -5,14 +5,15 @@ Authentication dependencies and Role-Based Access Control (RBAC) enforcement
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
-from app.core.db import get_db
-from app.core.errors import ForbiddenError, UnauthorizedError
-from app.core.security import decode_access_token
-from app.models.entities import AuditLog, User
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.core.db import get_db
+from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.security import decode_access_token
+from app.models.entities import AuditLog, User
 
 security_scheme = HTTPBearer(auto_error=False)
 

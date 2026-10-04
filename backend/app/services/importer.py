@@ -18,6 +18,9 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
 from app.adapters.cmapss_fd001 import CmapssFd001Adapter
 from app.core.db import engine
 from app.ml.verify_artifacts import verify_manifest
@@ -35,8 +38,6 @@ from app.models.entities import (
     SensorReading,
 )
 from app.services.alert_service import evaluate_trajectory_alerts
-from sqlalchemy import select, update
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

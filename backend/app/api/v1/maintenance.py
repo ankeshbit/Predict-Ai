@@ -11,6 +11,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import ConflictError, NotFoundError
@@ -21,9 +25,6 @@ from app.schemas.maintenance import (
     MaintenanceListResponse,
     MaintenanceRecordResponse,
 )
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/maintenance", tags=["Maintenance & Workflow"])
 

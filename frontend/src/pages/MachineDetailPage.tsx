@@ -33,7 +33,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
   maintenanceRecords,
   sensorHistory,
   onBack,
-  currentUserRole,
+  currentUserRole: _currentUserRole,
   onAcknowledgeAlert,
   onRecordMaintenance,
 }) => {
@@ -64,11 +64,14 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
       decision,
       decisionRationale: decisionRationale.trim(),
       actionTaken: actionTaken.trim(),
-      performedBy: currentUserRole === 'admin' ? 'admin@demo.internal' : 'engineer@demo.internal',
+      performedBy: '',  // populated server-side from JWT subject
       status: maintenanceOutcome === 'unresolved' ? 'in_progress' : 'completed',
       outcome: maintenanceOutcome,
-      notes: notes || 'Logged to machine operational history.',
+      notes: notes.trim(),
     });
+    setDecisionRationale('');
+    setActionTaken('');
+    setNotes('');
     setIsMaintenanceModalOpen(false);
   };
 
@@ -136,10 +139,10 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Machine Health Indicator */}
         <HealthGauge
-          score={machine.healthIndicator}
+          score={machine.healthIndicator ?? 100}
           band={machine.healthBand}
-          components={machine.healthComponents}
-          currentCycle={machine.currentCycle}
+          components={machine.healthComponents || { failureRiskPenalty: 0, anomalyPenalty: 0, trendPenalty: 0, otherPenalty: 0 }}
+          currentCycle={machine.currentCycle ?? 1}
         />
 
         {/* Calibrated Failure Probability (Compact analytical presentation - Section 10) */}
@@ -191,11 +194,13 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
           <div className="pt-2.5 border-t border-[#1d2634] grid grid-cols-3 gap-2 text-xs font-mono text-slate-400">
             <div>
               <div className="text-[10px] text-slate-500">Model Version</div>
-              <div className="text-slate-200 font-semibold truncate">{machine.lineage.failureModelVersion}</div>
+              <div className="text-slate-200 font-semibold truncate">{machine.lineage?.failureModelVersion ?? '—'}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-500">Anomaly Severity</div>
-              <div className="text-amber-400 font-semibold">{(machine.anomalySeverity * 100).toFixed(0)}%</div>
+              <div className="text-amber-400 font-semibold">
+                {machine.anomalySeverity != null ? `${(machine.anomalySeverity * 100).toFixed(0)}%` : '—'}
+              </div>
             </div>
             <div>
               <div className="text-[10px] text-slate-500">Reliability</div>

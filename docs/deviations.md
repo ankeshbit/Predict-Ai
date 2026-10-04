@@ -126,3 +126,20 @@ When an engineer records or completes a maintenance intervention with outcome `r
 ### Rationale
 Requiring an engineer who has already inspected the machine, documented the corrective work, and certified the outcome as `resolved` to subsequently locate and click a separate "Resolve Alert" button introduces redundant UI friction and leaves alerts in an inconsistent state (`acknowledged` while the physical problem is solved). Automatic atomic resolution upon certified maintenance completion aligns directly with the PRD §7.1 closed-loop acceptance criteria.
 
+---
+
+## 9. Demo Replay (Simulated Stream)
+
+### PRD v3.0 Specification (§8 / FR-18)
+PRD §8 and FR-18 specify static demo data seeding and an administrative `/demo/reset` endpoint to restore held-out engines to their baseline state. PRD §14 indicates telemetry streaming evaluation occurs via batch or uploaded datasets.
+
+### Implemented Workflow Formulation
+To enable realistic real-time demonstrations without external hardware or IoT gateways:
+1. **Simulated Telemetry Stream**: An administrative feature labeled `"Demo replay (simulated stream)"` is implemented via DB-backed state and endpoints:
+   - `GET /api/v1/demo/replay/status`: Returns current streaming state (`running: bool`) and machine cycle progress.
+   - `POST /api/v1/demo/replay/start` (Admin only): Advances held-out demo engines by one cycle from `demo_units.csv`, inserts `SensorReading` records, recalculates predictions via `scoring_service.score_machine_trajectory`, and applies configured `alert_rules`.
+   - `POST /api/v1/demo/replay/stop` (Admin only): Halts the replay stream.
+2. **Persistent State**: The stream state (`running`, `machine_cycles`) is persisted in the PostgreSQL `settings` table (key `demo_replay`) rather than process memory, ensuring consistency across worker restarts and scale-to-zero lifecycles.
+3. **Automatic Termination & Reset Integration**: Replay halts automatically when any engine reaches its final available cycle in `demo_units.csv`. Calling `POST /api/v1/demo/reset` immediately stops any active replay and restores the fleet to initial baseline conditions.
+4. **Role Enforcement**: Strictly restricted to `admin` users (HTTP 403 Forbidden for `engineer` role).
+

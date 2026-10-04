@@ -5,14 +5,15 @@ Model Governance & Registry API router: bundle versions, model cards, and Colab 
 import uuid
 from typing import List, Optional
 
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from app.core.auth import get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
 from app.models.entities import ModelEvaluation, ModelVersion, User
 from app.schemas.models import ModelEvaluationResponse, ModelVersionResponse
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/models", tags=["Models & Registry"])
 
