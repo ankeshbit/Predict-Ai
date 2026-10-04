@@ -175,45 +175,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
             </Button>
           </form>
 
-          {/* Quick Demo Access Bar */}
-          <div className="pt-2 border-t border-[#1f2838] space-y-2">
-            <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider text-center">
-              Direct Demonstration Access
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={loginMutation.isPending}
-                onClick={() => {
-                  // Demo quick-login: fires directly without revealing credentials in form state
-                  handlePerformLogin('admin@predicore.internal', 'AdminSecret123!');
-                }}
-                className="w-full text-xs text-slate-200 justify-center"
-              >
-                Sign In as Administrator (Fleet Control)
-              </Button>
-
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={loginMutation.isPending}
-                onClick={() => {
-                  // Demo quick-login: fires directly without revealing credentials in form state
-                  handlePerformLogin('engineer@predicore.internal', 'EngineerSecurePass123!');
-                }}
-                className="w-full text-xs text-slate-200 justify-center"
-              >
-                Sign In as Reliability Engineer (Operator)
-              </Button>
-            </div>
-          </div>
-
           <div className="p-3 rounded-md bg-[#0e141f] border border-[#1f2838] text-center text-[11px] text-slate-400 leading-relaxed font-mono">
-            Demo Environment: 5 turbofan engines seeded with run-to-failure telemetry from NASA C-MAPSS FD001 test partition.
+            Enterprise Station &bull; Sign in with provisioned administrator or reliability engineer credentials.
           </div>
         </div>
       </div>

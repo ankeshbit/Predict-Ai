@@ -110,6 +110,9 @@ def score_machine_trajectory(
             "op_setting_1": r.op_setting_1 or 0.0,
             "op_setting_2": r.op_setting_2 or 0.0,
             "op_setting_3": r.op_setting_3 or 0.0,
+            "operating_setting_1": r.op_setting_1 or 0.0,
+            "operating_setting_2": r.op_setting_2 or 0.0,
+            "operating_setting_3": r.op_setting_3 or 0.0,
         }
         for s in range(1, 22):
             val = getattr(r, f"sensor_{s}", None)
@@ -128,7 +131,7 @@ def score_machine_trajectory(
     }
 
     # 5. Run inference via vendored pdm_inference
-    scored_df = score_trajectory(df, bundle, health_config=cfg_dict)
+    scored_df = score_trajectory(df, bundle)
 
     # 6. Delete previous predictions and anomalies for this machine
     db.execute(Prediction.__table__.delete().where(Prediction.machine_id == machine_id))

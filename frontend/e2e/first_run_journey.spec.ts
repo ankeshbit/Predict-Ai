@@ -15,10 +15,15 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
 
   test.beforeEach(async ({ request }) => {
     // Reset demo fleet via admin endpoint to ensure pristine baseline for every run
+    const adminEmail = process.env.E2E_ADMIN_EMAIL || '';
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD || '';
+    expect(adminEmail, 'E2E_ADMIN_EMAIL must be configured').toBeTruthy();
+    expect(adminPassword, 'E2E_ADMIN_PASSWORD must be configured').toBeTruthy();
+
     const loginRes = await request.post('/api/v1/auth/login', {
       data: {
-        email: 'admin@predicore.internal',
-        password: 'AdminSecret123!',
+        email: adminEmail,
+        password: adminPassword,
       },
     });
     expect(loginRes.ok()).toBeTruthy();
@@ -33,11 +38,18 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
     // ── 1. Visit root URL → redirects to login page ────────────────────────
     await page.goto('/');
 
-    // ── 2. Engineer Login ────────────────────────────────────────────────────
-    // Use the demo quick-login button; this is the only supported Playwright entry point.
-    const quickLoginBtn = page.getByRole('button', { name: /Sign In as Reliability Engineer/i });
-    await expect(quickLoginBtn).toBeVisible({ timeout: 8000 });
-    await quickLoginBtn.click();
+    // ── 2. Engineer Login via typed credentials from environment ─────────────
+    const engineerEmail = process.env.E2E_ENGINEER_EMAIL || '';
+    const engineerPassword = process.env.E2E_ENGINEER_PASSWORD || '';
+    expect(engineerEmail, 'E2E_ENGINEER_EMAIL must be configured').toBeTruthy();
+    expect(engineerPassword, 'E2E_ENGINEER_PASSWORD must be configured').toBeTruthy();
+
+    const emailInput = page.getByRole('textbox', { name: /Operator Identity \/ Email/i });
+    const passwordInput = page.locator('input[type="password"]');
+    await expect(emailInput).toBeVisible({ timeout: 8000 });
+    await emailInput.fill(engineerEmail);
+    await passwordInput.fill(engineerPassword);
+    await page.getByRole('button', { name: /Sign In to Workstation/i }).click();
 
     // ── 3. Fleet Dashboard ───────────────────────────────────────────────────
     await expect(page.getByText(/Fleet Condition & Risk Overview/i)).toBeVisible({ timeout: 12000 });

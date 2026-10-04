@@ -2,6 +2,7 @@
 FastAPI Main Application Entrypoint for Predict-Ai (PrediCore)
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -41,6 +42,7 @@ from app.core.errors import (
 from app.core.logging import setup_logging
 from app.ml.verify_artifacts import verify_all
 from app.schemas.common import HealthStatus
+from app.services.demo_replay_worker import demo_replay_worker_loop
 
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -104,8 +106,15 @@ async def lifespan(app: FastAPI):
     check_production_security()
     # Startup tasks: run manifest + library-version verification
     verify_active_model_artifacts()
+    # Background workers: start demo replay simulated stream worker
+    worker_task = asyncio.create_task(demo_replay_worker_loop())
     yield
-    # Shutdown tasks
+    # Shutdown tasks: gracefully terminate background workers
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
     core_db.engine.dispose()
 
 

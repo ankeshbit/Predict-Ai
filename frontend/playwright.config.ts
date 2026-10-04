@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Credentials sourced from environment variables (provided by CI or local test runner)
+process.env.E2E_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || 'admin@predicore.internal';
+process.env.E2E_ENGINEER_EMAIL = process.env.E2E_ENGINEER_EMAIL || 'engineer@predicore.internal';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60 * 1000,

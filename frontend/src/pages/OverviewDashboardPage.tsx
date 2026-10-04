@@ -103,10 +103,16 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
                   className={`text-[10px] font-mono px-1.5 py-0.5 rounded border uppercase ${
                     replayStatus?.running
                       ? 'bg-emerald-950/70 text-emerald-300 border-emerald-800'
+                      : replayStatus?.completed
+                      ? 'bg-blue-950/70 text-blue-300 border-blue-800'
                       : 'bg-slate-800 text-slate-400 border-slate-700'
                   }`}
                 >
-                  {replayStatus?.running ? 'Streaming' : 'Stopped'}
+                  {replayStatus?.running
+                    ? 'Streaming'
+                    : replayStatus?.completed
+                    ? 'Completed'
+                    : 'Stopped'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
@@ -150,7 +156,7 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
             Fleet Health Average
           </div>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-2xl font-mono font-bold text-white tabular-nums">
+            <span data-testid="fleet-health-avg" className="text-2xl font-mono font-bold text-white tabular-nums">
               {avgHealth != null ? avgHealth : '—'}
             </span>
             <span className="text-xs font-mono text-slate-500">/ 100</span>
@@ -295,7 +301,7 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
                           ? `${(m.anomalySeverity * 100).toFixed(0)}% severity`
                           : '—'}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-300">
+                      <td data-testid="machine-cycle-cell" className="py-2.5 px-3 font-mono text-[11px] text-slate-300">
                         {m.currentCycle != null ? `Cycle ${m.currentCycle}` : '—'}
                       </td>
                       <td className="py-2.5 px-3 text-right">

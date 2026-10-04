@@ -238,6 +238,70 @@ def check_frontend_live_data():
     return True
 
 
+def check_frontend_no_password_literals():
+    """
+    Security Guardrail:
+    frontend/src (excluding tests) must NOT contain any hardcoded password literals.
+    Users must type their credentials; no credentials may be downloaded by the browser.
+    """
+    src_dir = ROOT_DIR / "frontend" / "src"
+    if not src_dir.exists():
+        return True
+
+    violations = []
+
+    password_literal_patterns = [
+        (re.compile(r"""\bpassword\s*[:=]\s*['"][^'"]{2,}['"]""", re.IGNORECASE), "password literal assignment"),
+        (re.compile(r"""\b(?:AdminSecret|EngineerSecurePass|Password123|Secret123)\b""", re.IGNORECASE), "credential token literal"),
+        (re.compile(r"""(?:handlePerformLogin|loginUser|loginMutation\.mutate)\s*\([^,)]+,\s*['"][^'"]+['"]""", re.IGNORECASE), "hardcoded password in login call"),
+    ]
+
+    for file_path in src_dir.rglob("*"):
+        if not file_path.is_file() or file_path.suffix not in [".ts", ".tsx", ".js", ".jsx"]:
+            continue
+
+        rel_path = file_path.relative_to(ROOT_DIR)
+        rel_str = str(rel_path).replace("\\", "/")
+
+        # Exclude tests
+        if "/tests/" in rel_str or "/__tests__/" in rel_str or ".test." in rel_str or ".spec." in rel_str:
+            continue
+
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        lines = content.splitlines()
+        for line_idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            # Skip pure comments
+            if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+                continue
+            # Skip type annotations (e.g. password: string)
+            if re.search(r"\bpassword\s*:\s*(?:string|string\s*\|)", stripped):
+                continue
+            # Skip input types (e.g. type="password")
+            if re.search(r"""type\s*=\s*['"]password['"]""", stripped):
+                continue
+
+            for pat, desc in password_literal_patterns:
+                m = pat.search(line)
+                if m:
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden {desc}: '{m.group(0)}' in: {stripped[:100]}"
+                    )
+
+    if violations:
+        print("[-] FAILED: Hardcoded password literal detected in frontend/src:")
+        for v in violations:
+            print(f"    {v}")
+        return False
+
+    print("[+] PASSED: Frontend password literals check passed (zero password literals in frontend/src).")
+    return True
+
+
 def main():
     success = True
     if not check_physical_sensor_semantics():
@@ -247,6 +311,9 @@ def main():
         success = False
 
     if not check_frontend_live_data():
+        success = False
+
+    if not check_frontend_no_password_literals():
         success = False
 
     if not success:

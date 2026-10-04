@@ -8,7 +8,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch, POLL_INTERVAL_MS } from './client';
+import { apiFetch } from './client';
 
 export interface DemoResetResult {
   status: string;
@@ -23,6 +23,7 @@ export interface DemoResetResult {
 
 export interface DemoReplayStatus {
   running: boolean;
+  completed?: boolean;
   current_machine_cycles: Record<string, number>;
   message: string;
 }
@@ -39,11 +40,21 @@ export function useResetDemo() {
 }
 
 export function useDemoReplayStatus(isAdmin: boolean) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['demo', 'replay', 'status'],
-    queryFn: () => apiFetch<DemoReplayStatus>('/demo/replay/status'),
+    queryFn: async () => {
+      const res = await apiFetch<DemoReplayStatus>('/demo/replay/status');
+      if (res.running) {
+        queryClient.invalidateQueries({ queryKey: ['machines'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      }
+      return res;
+    },
     enabled: isAdmin,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: (query) => {
+      return query.state.data?.running ? 1500 : 3000;
+    },
     refetchIntervalInBackground: false,
   });
 }

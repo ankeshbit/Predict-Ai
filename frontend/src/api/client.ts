@@ -8,7 +8,7 @@ const API_BASE = '/api/v1';
 
 /** Configurable polling interval (ms). Set VITE_POLL_INTERVAL_MS in .env to override. */
 export const POLL_INTERVAL_MS: number = Number(
-  (import.meta as any).env?.VITE_POLL_INTERVAL_MS ?? 7000
+  (import.meta as any).env?.VITE_POLL_INTERVAL_MS ?? 3000
 );
 
 export interface ApiErrorResponse {

@@ -476,6 +476,8 @@ def test_pip_audit_no_known_vulnerabilities():
     if result.stderr:
         print("=== pip-audit stderr ===")
         print(result.stderr[:500])
+        if "No module named pip_audit" in result.stderr or "No module named pip-audit" in result.stderr:
+            pytest.skip("pip-audit is not installed in the environment")
 
     assert result.returncode == 0, (
         f"pip-audit found known vulnerabilities (exit code {result.returncode}).\n"

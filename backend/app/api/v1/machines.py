@@ -52,8 +52,18 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
         .order_by(Prediction.cycle.desc())
         .limit(1)
     )
+    latest_reading_cycle = db.scalar(
+        select(SensorReading.cycle_index)
+        .where(SensorReading.machine_id == machine.id)
+        .order_by(SensorReading.cycle_index.desc())
+        .limit(1)
+    )
+
     if latest_pred is None:
-        return {}
+        return {"current_cycle": latest_reading_cycle} if latest_reading_cycle is not None else {}
+
+    resolved_cycle = max(c for c in [latest_pred.cycle, latest_reading_cycle] if c is not None)
+
     # Determine reliability_status from flags
     dq = latest_pred.reliability_flags.get("data_quality", "DATA_OK") if latest_pred.reliability_flags else "DATA_OK"
     reliability_status = "ok" if dq == "DATA_OK" else "reduced"
@@ -62,7 +72,7 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
     return {
         "failure_probability": latest_pred.failure_probability,
         "risk_level": latest_pred.risk_level,
-        "current_cycle": latest_pred.cycle,
+        "current_cycle": resolved_cycle,
         "anomaly_score": latest_pred.penalty_anomaly / 100.0,
         "anomaly_severity": anomaly_severity,
         "reliability_status": reliability_status,
