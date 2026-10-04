@@ -16,11 +16,12 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pandas as pd
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import settings
 from app.models.entities import Job, Machine, ModelVersion, SensorReading, Setting
@@ -40,21 +41,25 @@ def get_replay_state(db: Session) -> Dict[str, Any]:
     return dict(setting.value)
 
 
-def set_replay_state(db: Session, state: Dict[str, Any]) -> None:
+def set_replay_state(db: Session, state: Dict[str, Any], commit: bool = True) -> None:
     setting = db.scalar(select(Setting).where(Setting.key == DEMO_REPLAY_SETTING_KEY))
     if setting is None:
         setting = Setting(
             key=DEMO_REPLAY_SETTING_KEY,
-            value=state,
+            value=dict(state),
             description="Demo replay (simulated stream) state — admin-only",
         )
         db.add(setting)
     else:
-        setting.value = state
-    db.commit()
+        setting.value = dict(state)
+        flag_modified(setting, "value")
+    if commit:
+        db.commit()
+    else:
+        db.flush()
 
 
-def advance_replay_tick(db: Session) -> bool:
+def advance_replay_tick(db: Session, commit: bool = True) -> bool:
     """
     Executes a single cycle advancement tick for all active demo engines.
     Returns True if at least one engine advanced, or False if replay is stopped / completed.
@@ -151,18 +156,19 @@ def advance_replay_tick(db: Session) -> bool:
 
         # Re-score trajectory for this machine through live scoring service
         try:
-            score_machine_trajectory(machine.id, db)
+            score_machine_trajectory(machine.id, db, commit=commit)
         except Exception as exc:
             logger.warning("Replay scoring failed for %s: %s", machine.machine_code, exc)
         machine_cycles[machine.machine_code] = next_cycle
         any_advanced = True
 
     if any_advanced:
-        state["running"] = True
+        latest_state = get_replay_state(db)
+        state["running"] = bool(latest_state.get("running", False))
         state["completed"] = False
         state["machine_cycles"] = machine_cycles
         state["last_advanced_at"] = datetime.now(timezone.utc).isoformat()
-        set_replay_state(db, state)
+        set_replay_state(db, state, commit=commit)
         logger.info("Demo replay tick advanced cycles: %s", machine_cycles)
         return True
     else:
@@ -171,7 +177,7 @@ def advance_replay_tick(db: Session) -> bool:
         state["running"] = False
         state["completed"] = True
         state["machine_cycles"] = machine_cycles
-        set_replay_state(db, state)
+        set_replay_state(db, state, commit=commit)
 
         # Complete running Jobs
         active_jobs = db.scalars(
@@ -180,12 +186,24 @@ def advance_replay_tick(db: Session) -> bool:
         for j in active_jobs:
             j.status = "completed"
             j.completed_at = datetime.now(timezone.utc)
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         return False
 
 
 def run_tick_with_advisory_lock() -> bool:
-    """Acquires a PostgreSQL advisory lock (if on postgres) and runs a single tick."""
+    """
+    Executes a single tick protected by a PostgreSQL transaction-scoped advisory lock
+    (pg_try_advisory_xact_lock) taken inside the same transaction that performs the tick.
+
+    Why pg_try_advisory_xact_lock:
+    1. Works reliably through Neon's PgBouncer (transaction pooling) where session locks
+       can bleed across pooled connections or fail to unlock.
+    2. Automatically released by PostgreSQL when the transaction commits or rolls back,
+       preventing stale or leaking locks.
+    """
     from app.core.db import SessionLocal
 
     with SessionLocal() as db:
@@ -198,43 +216,97 @@ def run_tick_with_advisory_lock() -> bool:
         if is_postgres:
             try:
                 locked = db.scalar(
-                    text("SELECT pg_try_advisory_lock(:lock_id)"),
+                    text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
                     {"lock_id": DEMO_REPLAY_ADVISORY_LOCK_ID},
                 )
                 if not locked:
-                    # Another server worker instance currently holds the lock
+                    # Another server worker instance currently holds the transaction lock
+                    db.rollback()
                     return False
             except Exception as exc:
-                logger.warning("Advisory lock acquisition failed, continuing: %s", exc)
+                logger.warning("Transaction advisory lock acquisition failed: %s", exc)
+                db.rollback()
+                return False
 
         try:
-            return advance_replay_tick(db)
-        finally:
-            if is_postgres:
-                try:
-                    db.execute(
-                        text("SELECT pg_advisory_unlock(:lock_id)"),
-                        {"lock_id": DEMO_REPLAY_ADVISORY_LOCK_ID},
-                    )
-                    db.commit()
-                except Exception:
-                    pass
+            result = advance_replay_tick(db, commit=False)
+            db.commit()
+            return result
+        except Exception:
+            db.rollback()
+            raise
+
+
+_worker_wake_event: Optional[asyncio.Event] = None
+_worker_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def wake_demo_replay_worker() -> None:
+    """Signals the background replay worker to immediately wake from idle sleep."""
+    global _worker_wake_event, _worker_loop
+    if _worker_wake_event is not None and _worker_loop is not None and not _worker_loop.is_closed():
+        try:
+            _worker_loop.call_soon_threadsafe(_worker_wake_event.set)
+        except Exception:
+            pass
+
+
+def is_replay_running() -> bool:
+    """Checks whether demo replay is active without acquiring the advisory lock."""
+    from app.core.db import SessionLocal
+    try:
+        with SessionLocal() as db:
+            state = get_replay_state(db)
+            return bool(state.get("running", False) and not state.get("completed", False))
+    except Exception as exc:
+        logger.warning("Failed to check replay state: %s", exc)
+        return False
 
 
 async def demo_replay_worker_loop():
-    """Background asyncio worker task executing periodically while demo_replay.running is True."""
-    logger.info("Demo replay background worker loop started.")
-    while True:
-        try:
-            await asyncio.to_thread(run_tick_with_advisory_lock)
-        except asyncio.CancelledError:
-            logger.info("Demo replay worker task cancelled.")
-            break
-        except Exception as exc:
-            logger.exception("Unexpected error in demo replay worker loop: %s", exc)
+    """
+    Background asyncio worker task executing periodically.
 
-        try:
-            interval = max(0.1, float(settings.DEMO_REPLAY_INTERVAL_SECONDS))
-            await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            break
+    Neon Scale-to-Zero Optimization:
+    - While running: ticks every DEMO_REPLAY_INTERVAL_SECONDS (default 5s).
+    - While stopped / idle: checks settings table only every
+      DEMO_REPLAY_IDLE_INTERVAL_SECONDS (default 30s) or immediately when
+      woken by wake_demo_replay_worker() upon an admin start request.
+      This minimizes database wakeups and allows Neon compute to auto-suspend.
+    """
+    global _worker_wake_event, _worker_loop
+    logger.info("Demo replay background worker loop started.")
+    _worker_loop = asyncio.get_running_loop()
+    _worker_wake_event = asyncio.Event()
+
+    try:
+        while True:
+            is_running = False
+            try:
+                is_running = await asyncio.to_thread(is_replay_running)
+                if is_running:
+                    await asyncio.to_thread(run_tick_with_advisory_lock)
+                    is_running = await asyncio.to_thread(is_replay_running)
+            except asyncio.CancelledError:
+                logger.info("Demo replay worker task cancelled.")
+                break
+            except Exception as exc:
+                logger.exception("Unexpected error in demo replay worker loop: %s", exc)
+
+            try:
+                if is_running:
+                    interval = max(0.1, float(settings.DEMO_REPLAY_INTERVAL_SECONDS))
+                else:
+                    interval = max(0.1, float(settings.DEMO_REPLAY_IDLE_INTERVAL_SECONDS))
+
+                _worker_wake_event.clear()
+                try:
+                    await asyncio.wait_for(_worker_wake_event.wait(), timeout=interval)
+                except asyncio.TimeoutError:
+                    pass
+            except asyncio.CancelledError:
+                break
+    finally:
+        _worker_wake_event = None
+        _worker_loop = None
+

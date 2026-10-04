@@ -15,10 +15,14 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
 
   test.beforeEach(async ({ request }) => {
     // Reset demo fleet via admin endpoint to ensure pristine baseline for every run
-    const adminEmail = process.env.E2E_ADMIN_EMAIL || '';
-    const adminPassword = process.env.E2E_ADMIN_PASSWORD || '';
-    expect(adminEmail, 'E2E_ADMIN_EMAIL must be configured').toBeTruthy();
-    expect(adminPassword, 'E2E_ADMIN_PASSWORD must be configured').toBeTruthy();
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    if (!adminEmail) {
+      throw new Error('E2E_ADMIN_EMAIL must be configured and non-empty.');
+    }
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+    if (!adminPassword) {
+      throw new Error('E2E_ADMIN_PASSWORD must be configured and non-empty.');
+    }
 
     const loginRes = await request.post('/api/v1/auth/login', {
       data: {
@@ -39,10 +43,14 @@ test.describe('PRD 7.1 First-Run Journey [MVP Acceptance Journey]', () => {
     await page.goto('/');
 
     // ── 2. Engineer Login via typed credentials from environment ─────────────
-    const engineerEmail = process.env.E2E_ENGINEER_EMAIL || '';
-    const engineerPassword = process.env.E2E_ENGINEER_PASSWORD || '';
-    expect(engineerEmail, 'E2E_ENGINEER_EMAIL must be configured').toBeTruthy();
-    expect(engineerPassword, 'E2E_ENGINEER_PASSWORD must be configured').toBeTruthy();
+    const engineerEmail = process.env.E2E_ENGINEER_EMAIL;
+    if (!engineerEmail) {
+      throw new Error('E2E_ENGINEER_EMAIL must be configured and non-empty.');
+    }
+    const engineerPassword = process.env.E2E_ENGINEER_PASSWORD;
+    if (!engineerPassword) {
+      throw new Error('E2E_ENGINEER_PASSWORD must be configured and non-empty.');
+    }
 
     const emailInput = page.getByRole('textbox', { name: /Operator Identity \/ Email/i });
     const passwordInput = page.locator('input[type="password"]');

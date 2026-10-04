@@ -30,6 +30,8 @@ This guide covers end-to-end production deployment: Neon PostgreSQL, Render/Rail
 | `DATABASE_URL_DIRECT` | **MANDATORY** | **Direct** Neon URL (non-pooled). Used exclusively by Alembic migrations. | `postgresql+psycopg://USER:PASSWORD@DIRECT_HOST/DB?sslmode=require` |
 | `CORS_ORIGINS` | **MANDATORY** | Comma-separated list of allowed frontend origins | `https://predict-ai.vercel.app` |
 | `MODEL_ARTIFACTS_DIR` | recommended | Path to model bundles inside container | `/app/model_artifacts` |
+| `DEMO_REPLAY_INTERVAL_SECONDS` | optional | Active stream tick advancement interval in seconds (default 5.0) | `5.0` |
+| `DEMO_REPLAY_IDLE_INTERVAL_SECONDS` | optional | Idle state polling interval in seconds (default 30.0; supports Neon scale-to-zero) | `30.0` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | optional | JWT token TTL (default 60) | `60` |
 | `LOG_LEVEL` | optional | `INFO` or `WARNING` for production | `INFO` |
 
@@ -109,6 +111,21 @@ docker compose run --rm backend \
 
 > [!CAUTION]
 > **Change both default account passwords immediately after the first login.** The seeded passwords are placeholders read from environment variables. In production, set `INITIAL_ADMIN_PASSWORD` and `INITIAL_ENGINEER_PASSWORD` to strong, unique values and rotate them post-deploy.
+
+### Step 6 — Background Demo Replay Stream & Neon Scale-to-Zero
+
+The backend includes a continuous background worker (`app.services.demo_replay_worker`) managed by FastAPI's lifespan context that drives the simulated telemetry stream for demo engines.
+
+**Neon Scale-to-Zero Rationale**:
+- Neon serverless Postgres suspends compute (scales to zero) after a configurable period of inactivity to conserve compute hours and reduce costs.
+- If the background worker polled the database continuously at high frequency (e.g. every 5 seconds) while the stream was idle, it would keep generating active queries, perpetually preventing Neon compute from ever auto-suspending.
+- **Dual-Cadence Polling**:
+  - **Active State (`running=True`)**: Worker ticks every `DEMO_REPLAY_INTERVAL_SECONDS` (default: 5.0s), advancing cycles and running live scoring.
+  - **Idle State (`running=False`)**: Worker checks the settings table only every `DEMO_REPLAY_IDLE_INTERVAL_SECONDS` (default: 30.0s). When an administrator starts the replay stream via `POST /api/v1/demo/replay/start`, the API immediately triggers an in-memory process signal (`wake_demo_replay_worker()`), waking the worker instantly without any 30s polling latency.
+- **PgBouncer Transaction Pooling Compatibility (`pg_try_advisory_xact_lock`)**:
+  - Neon's pooled endpoint routes queries through PgBouncer in transaction mode.
+  - Session-level advisory locks (`pg_try_advisory_lock` / `pg_advisory_unlock`) are unsafe across pooled connections because subsequent unlock commands may land on different physical backend connections, leading to orphan locks or lock leakage.
+  - The worker uses transaction-scoped advisory locks: `SELECT pg_try_advisory_xact_lock(:lock_id)`. The lock is held exclusively within the single transaction that performs the tick and is guaranteed to be released atomically by PostgreSQL upon `COMMIT` or `ROLLBACK`.
 
 ---
 

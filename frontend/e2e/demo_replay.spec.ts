@@ -20,10 +20,14 @@ test.describe('Live Demo Replay (Simulated Stream) Workflow', () => {
   test.setTimeout(90000);
 
   test.beforeEach(async ({ request }) => {
-    const adminEmail = process.env.E2E_ADMIN_EMAIL || '';
-    const adminPassword = process.env.E2E_ADMIN_PASSWORD || '';
-    expect(adminEmail, 'E2E_ADMIN_EMAIL must be configured').toBeTruthy();
-    expect(adminPassword, 'E2E_ADMIN_PASSWORD must be configured').toBeTruthy();
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    if (!adminEmail) {
+      throw new Error('E2E_ADMIN_EMAIL must be configured and non-empty.');
+    }
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+    if (!adminPassword) {
+      throw new Error('E2E_ADMIN_PASSWORD must be configured and non-empty.');
+    }
 
     // Reset demo fleet via admin endpoint to ensure pristine baseline
     const loginRes = await request.post('/api/v1/auth/login', {
@@ -45,10 +49,14 @@ test.describe('Live Demo Replay (Simulated Stream) Workflow', () => {
     await page.goto('/');
 
     // 2. Sign In as Administrator using typed credentials from environment
-    const adminEmail = process.env.E2E_ADMIN_EMAIL || '';
-    const adminPassword = process.env.E2E_ADMIN_PASSWORD || '';
-    expect(adminEmail, 'E2E_ADMIN_EMAIL must be configured').toBeTruthy();
-    expect(adminPassword, 'E2E_ADMIN_PASSWORD must be configured').toBeTruthy();
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    if (!adminEmail) {
+      throw new Error('E2E_ADMIN_EMAIL must be configured and non-empty.');
+    }
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+    if (!adminPassword) {
+      throw new Error('E2E_ADMIN_PASSWORD must be configured and non-empty.');
+    }
 
     const emailInput = page.getByRole('textbox', { name: /Operator Identity \/ Email/i });
     const passwordInput = page.locator('input[type="password"]');

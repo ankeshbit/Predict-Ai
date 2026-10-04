@@ -31,8 +31,10 @@ class Settings(BaseSettings):
     # Model artifacts directory
     MODEL_ARTIFACTS_DIR: str = "model_artifacts"
 
-    # Demo replay simulated stream worker tick interval (seconds)
+    # Demo replay simulated stream worker tick interval (seconds) while active
     DEMO_REPLAY_INTERVAL_SECONDS: float = 5.0
+    # Demo replay worker idle polling interval (seconds) while stopped (Neon scale-to-zero optimization)
+    DEMO_REPLAY_IDLE_INTERVAL_SECONDS: float = 30.0
 
     # Initial account seed (passwords MUST come from environment variables)
     INITIAL_ADMIN_EMAIL: str = "admin@predicore.internal"

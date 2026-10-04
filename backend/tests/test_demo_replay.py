@@ -15,11 +15,13 @@ import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.core.config import settings
+from app.core.db import SessionLocal
 from app.models.entities import Machine, SensorReading
 from app.services.demo_replay_worker import (
+    DEMO_REPLAY_ADVISORY_LOCK_ID,
     run_tick_with_advisory_lock,
     set_replay_state,
 )
@@ -152,3 +154,61 @@ def test_demo_replay_stream_advances_without_requests_and_stops(
         stop_event.set()
         ticker_thread.join(timeout=2.0)
         settings.DEMO_REPLAY_INTERVAL_SECONDS = original_interval
+
+
+def test_demo_replay_concurrent_xact_advisory_lock(mock_valid_bundle: Path, db):
+    """
+    Verifies that pg_try_advisory_xact_lock prevents concurrent tick execution across
+    multiple database sessions (e.g. across multiple worker instances behind PgBouncer).
+
+    Scenario:
+    1. Session 1 begins a transaction and acquires pg_try_advisory_xact_lock.
+    2. Session 2 (invoking run_tick_with_advisory_lock) tries to tick concurrently.
+       Because Session 1 holds the transaction lock, Session 2 cannot acquire it
+       and returns False without advancing any ticks.
+    3. Session 1 finishes its transaction and commits, auto-releasing the xact lock.
+    4. Session 2 can now acquire the lock and run its tick successfully.
+    """
+    # 1. Register active model bundle and seed demo fleet
+    register_model_bundle(mock_valid_bundle, activate=True, session=db)
+    seed_demo_engines(mock_valid_bundle, session=db)
+
+    # Append additional cycles for demo units to enable ticking
+    demo_csv = mock_valid_bundle / "demo" / "demo_units.csv"
+    with open(demo_csv, "a", encoding="utf-8") as f:
+        for u in (1, 2, 3):
+            for c in range(11, 25):
+                f.write(f"{u},{c},0.0,0.0,100.0," + ",".join("20.5" for _ in range(21)) + "\n")
+
+    set_replay_state(db, {"running": True, "completed": False, "machine_cycles": {}})
+
+    # Session 1 acquires the transaction-level advisory lock inside an active transaction
+    with SessionLocal() as s1:
+        is_postgres = s1.bind is not None and s1.bind.dialect.name == "postgresql"
+        if not is_postgres:
+            return  # Advisory locks only apply to PostgreSQL
+
+        locked_by_s1 = s1.scalar(
+            text("SELECT pg_try_advisory_xact_lock(:id)"),
+            {"id": DEMO_REPLAY_ADVISORY_LOCK_ID},
+        )
+        assert locked_by_s1 is True, "Session 1 must successfully acquire the xact lock"
+
+        # While Session 1 holds the lock in its uncommitted transaction,
+        # run_tick_with_advisory_lock() opens Session 2 and attempts the tick.
+        # It MUST return False because pg_try_advisory_xact_lock fails.
+        tick_executed = run_tick_with_advisory_lock()
+        assert tick_executed is False, (
+            "Session 2 must NOT run a tick while Session 1 holds the transaction advisory lock"
+        )
+
+        # Session 1 commits, which automatically releases the pg_try_advisory_xact_lock
+        s1.commit()
+
+    # Now that Session 1's transaction has committed, the lock is released.
+    # Calling run_tick_with_advisory_lock() can now successfully acquire the lock and tick.
+    tick_after_release = run_tick_with_advisory_lock()
+    assert tick_after_release is True, (
+        "After Session 1 releases the transaction lock, Session 2 must be able to acquire lock and tick"
+    )
+

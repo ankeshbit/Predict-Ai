@@ -45,6 +45,7 @@ def score_machine_trajectory(
     machine_id: uuid.UUID,
     db: Session,
     bundle_path: Optional[str | Path] = None,
+    commit: bool = True,
 ) -> Dict[str, Any]:
     """Scores historical sensor readings for a machine using the active model bundle."""
     machine = db.get(Machine, machine_id)
@@ -133,9 +134,9 @@ def score_machine_trajectory(
     # 5. Run inference via vendored pdm_inference
     scored_df = score_trajectory(df, bundle)
 
-    # 6. Delete previous predictions and anomalies for this machine
-    db.execute(Prediction.__table__.delete().where(Prediction.machine_id == machine_id))
+    # 6. Delete previous anomalies and predictions for this machine (child table first)
     db.execute(Anomaly.__table__.delete().where(Anomaly.machine_id == machine_id))
+    db.execute(Prediction.__table__.delete().where(Prediction.machine_id == machine_id))
 
     # Query risk band settings (PRD §14.8 default low_max=0.10 aligned with decision_threshold)
     risk_setting = db.scalar(select(Setting).where(Setting.key == "risk_bands"))
@@ -254,8 +255,11 @@ def score_machine_trajectory(
         persist=True,
     )
 
-    db.commit()
-    db.refresh(machine)
+    if commit:
+        db.commit()
+        db.refresh(machine)
+    else:
+        db.flush()
 
     return {
         "machine_id": str(machine_id),

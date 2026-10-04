@@ -36,15 +36,16 @@ The platform enforces strict separation across 4 chronological stages:
 
 ---
 
-## 3. Demo Credentials
+## 3. Authentication & Credentials
+All credentials must be supplied via environment variables. No plain-text passwords or secret keys exist in this repository.
 
 - **Reliability Engineer**:
-  - Email: `engineer@predicore.internal`
-  - Passcode: `EngineerSecurePass123!`
+  - Email: Configured via `INITIAL_ENGINEER_EMAIL` (default: `engineer@predicore.internal`)
+  - Passcode: Provided via `INITIAL_ENGINEER_PASSWORD` environment variable.
   - Scope: Telemetry monitoring, alert triage, maintenance recording.
 - **System Administrator**:
-  - Email: `admin@predicore.internal`
-  - Passcode: Set via `INITIAL_ADMIN_PASSWORD` env var or `python -m app.cli reset-admin-password` (no default in repo).
+  - Email: Configured via `INITIAL_ADMIN_EMAIL` (default: `admin@predicore.internal`)
+  - Passcode: Provided via `INITIAL_ADMIN_PASSWORD` environment variable (or reset via `python -m app.cli reset-admin-password`).
   - Scope: Machine onboarding, schema mapping, scoring runs, health formula weights, system audit logs.
 
 ---

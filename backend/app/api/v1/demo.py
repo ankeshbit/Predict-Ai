@@ -22,6 +22,7 @@ from app.models.entities import Job, ModelVersion, User
 from app.services.demo_replay_worker import (
     get_replay_state,
     set_replay_state,
+    wake_demo_replay_worker,
 )
 from app.services.importer import seed_demo_engines
 
@@ -121,6 +122,8 @@ def start_replay(
     )
     db.add(job)
     db.commit()
+
+    wake_demo_replay_worker()
 
     return DemoReplayStartResponse(
         status="started",

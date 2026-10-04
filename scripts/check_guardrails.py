@@ -302,6 +302,54 @@ def check_frontend_no_password_literals():
     return True
 
 
+def check_docs_and_config_no_credential_literals():
+    """
+    Security Guardrail:
+    README.md, .env.example, and all files under docs/ must NOT contain
+    hardcoded credential literals (e.g. EngineerSecurePass, AdminSecret, Password123, Secret123).
+    All credentials must come from environment variables, keeping placeholders only.
+    """
+    targets = [ROOT_DIR / "README.md", ROOT_DIR / ".env.example"]
+    docs_dir = ROOT_DIR / "docs"
+    if docs_dir.exists():
+        for doc_file in docs_dir.rglob("*"):
+            if doc_file.is_file() and doc_file.suffix in [".md", ".txt", ".json", ".yaml", ".yml", ".html"]:
+                targets.append(doc_file)
+
+    forbidden_literals = [
+        (re.compile(r"""\b(?:AdminSecret|EngineerSecurePass|Password123|Secret123|EngineerSecret)\w*\b""", re.IGNORECASE), "credential literal"),
+        (re.compile(r"""(?:INITIAL_ADMIN_PASSWORD|INITIAL_ENGINEER_PASSWORD)\s*=\s*(?!<|change_this|\$\{)[^\s#]+""", re.IGNORECASE), "plain-text password in seed env template"),
+    ]
+
+    violations = []
+    for file_path in targets:
+        if not file_path.is_file():
+            continue
+        rel_path = file_path.relative_to(ROOT_DIR)
+        rel_str = str(rel_path).replace("\\", "/")
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        for line_idx, line in enumerate(content.splitlines(), 1):
+            for pat, desc in forbidden_literals:
+                m = pat.search(line)
+                if m:
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden {desc}: '{m.group(0)}' in: {line.strip()[:100]}"
+                    )
+
+    if violations:
+        print("[-] FAILED: Forbidden credential literal detected in README.md, .env.example, or docs/:")
+        for v in violations:
+            print(f"    {v}")
+        return False
+
+    print("[+] PASSED: Documentation and config credential hygiene check passed (zero credential literals in README.md, .env.example, or docs/).")
+    return True
+
+
 def main():
     success = True
     if not check_physical_sensor_semantics():
@@ -314,6 +362,9 @@ def main():
         success = False
 
     if not check_frontend_no_password_literals():
+        success = False
+
+    if not check_docs_and_config_no_credential_literals():
         success = False
 
     if not success:

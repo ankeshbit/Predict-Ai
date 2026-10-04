@@ -150,15 +150,32 @@ jobs:
           pip install -r backend/requirements-inference.txt
           pip install -e backend/
 
+      - name: Generate Random E2E Credentials
+        run: |
+          ADMIN_PW=$(openssl rand -base64 24)
+          ENGINEER_PW=$(openssl rand -base64 24)
+          echo "E2E_ADMIN_EMAIL=admin@predicore.internal" >> $GITHUB_ENV
+          echo "E2E_ADMIN_PASSWORD=$ADMIN_PW" >> $GITHUB_ENV
+          echo "INITIAL_ADMIN_PASSWORD=$ADMIN_PW" >> $GITHUB_ENV
+          echo "E2E_ENGINEER_EMAIL=engineer@predicore.internal" >> $GITHUB_ENV
+          echo "E2E_ENGINEER_PASSWORD=$ENGINEER_PW" >> $GITHUB_ENV
+          echo "INITIAL_ENGINEER_PASSWORD=$ENGINEER_PW" >> $GITHUB_ENV
+
       - name: Run Database Migrations & Seed Demo
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
           DATABASE_URL_DIRECT: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
           ENVIRONMENT: development
           SECRET_KEY: test_secret_key_minimum_32_characters_long
+          INITIAL_ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
+          INITIAL_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          INITIAL_ENGINEER_EMAIL: ${{ env.E2E_ENGINEER_EMAIL }}
+          INITIAL_ENGINEER_PASSWORD: ${{ env.E2E_ENGINEER_PASSWORD }}
         run: |
           cd backend
           alembic upgrade head
+          python -m app.cli seed-defaults
+          python -m app.cli register-model --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z --activate
           python -m app.cli seed-demo --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z
 
       - name: Start FastAPI Backend
@@ -177,6 +194,11 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E Tests Against Seeded DB
+        env:
+          E2E_ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          E2E_ENGINEER_EMAIL: ${{ env.E2E_ENGINEER_EMAIL }}
+          E2E_ENGINEER_PASSWORD: ${{ env.E2E_ENGINEER_PASSWORD }}
         run: |
           cd frontend
           npx playwright test
