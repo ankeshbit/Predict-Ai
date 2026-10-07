@@ -4,7 +4,7 @@ import type { HealthBand, RiskLevel, MachineStatus, AlertStatus, ReliabilityStat
 interface BadgeProps {
   children?: React.ReactNode;
   variant?: 'health' | 'risk' | 'status' | 'alert' | 'reliability' | 'neutral' | 'demo';
-  value?: HealthBand | RiskLevel | MachineStatus | AlertStatus | ReliabilityStatus | string;
+  value?: HealthBand | RiskLevel | MachineStatus | AlertStatus | ReliabilityStatus | string | null;
   size?: 'xs' | 'sm';
   className?: string;
   dot?: boolean;
@@ -18,8 +18,9 @@ export const Badge: React.FC<BadgeProps> = ({
   className = '',
   dot = true,
 }) => {
-  const content = children || value;
-  const val = String(value || children);
+  const content = children != null ? children : value;
+  if (content == null) return null;
+  const val = String(content);
 
   const sizeClasses = size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5';
 

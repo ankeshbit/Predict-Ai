@@ -33,21 +33,21 @@ import { Loader2 } from 'lucide-react';
 function mapBackendMachineToMachine(bm: any): Machine {
   // Risk level fallback: derive from failure_probability if backend doesn't provide it
   const rawRiskLevel = bm.risk_level ?? null;
-  const failureProb: number = bm.failure_probability ?? 0.0;
+  const failureProb: number | null = bm.failure_probability != null ? bm.failure_probability : null;
   const derivedRiskLevel =
     rawRiskLevel ??
-    (failureProb >= 0.7 ? 'Critical' : failureProb >= 0.4 ? 'Warning' : 'Low');
+    (failureProb != null ? (failureProb >= 0.7 ? 'Critical' : failureProb >= 0.4 ? 'Warning' : 'Low') : null);
 
   return {
     id: bm.id,
     machineCode: bm.machine_code,
     name: bm.name || bm.machine_code,
-    machineType: bm.machine_type || 'Turbofan engine (simulated)',
-    location: bm.location || 'Test Cell',
+    machineType: bm.machine_type || '—',
+    location: bm.location || '—',
     installDate: bm.install_date ?? bm.created_at,
     operationalStatus: bm.operational_status ?? 'active',
     healthIndicator: bm.health_indicator ?? null,
-    healthBand: bm.health_band || 'Healthy',
+    healthBand: bm.health_band ?? null,
     healthComponents: {
       failureRiskPenalty: 0,
       anomalyPenalty: 0,
@@ -106,12 +106,12 @@ function mapBackendAlertToAlert(ba: any, machineCode = 'FD001-Unit'): Alert {
     type: ba.alert_type as any,
     severity: ba.severity as any,
     status: ba.status as any,
-    asOfCycle: ba.trigger_cycle || 1,
+    asOfCycle: ba.trigger_cycle != null ? ba.trigger_cycle : null,
     triggeredAt: ba.created_at,
-    message: `Operational alert: ${String(ba.alert_type || '').replace(/_/g, ' ')}`,
+    message: ba.alert_type ? `Operational alert: ${String(ba.alert_type).replace(/_/g, ' ')}` : 'Operational alert: —',
     reliabilityStatus: 'ok',
-    recommendationText: ba.recommendation_text || 'Perform standard engine inspection.',
-    recommendationRuleId: ba.recommendation_rule_id || 'RULE_DEFAULT',
+    recommendationText: ba.recommendation_text || '—',
+    recommendationRuleId: ba.recommendation_rule_id || '—',
     acknowledgedAt: ba.acknowledged_at,
     acknowledgedBy: ba.acknowledged_by_user_id,
     resolvedAt: ba.resolved_at,
@@ -125,16 +125,16 @@ function mapBackendMaintenanceToRecord(bm: any, machineCode = 'FD001-Unit'): Mai
     machineId: bm.machine_id,
     machineCode,
     alertId: bm.alert_id,
-    issue: bm.issue || bm.action_type || 'Inspection',
-    recommendedAction: bm.recommended_action || 'Inspect engine sensors',
-    decision: bm.decision || 'followed_recommendation',
-    decisionRationale: bm.decision_rationale || '',
-    actionTaken: bm.action_taken || '',
+    issue: bm.issue || bm.action_type || '—',
+    recommendedAction: bm.recommended_action || '—',
+    decision: bm.decision || '—',
+    decisionRationale: bm.decision_rationale || '—',
+    actionTaken: bm.action_taken || '—',
     performedAt: bm.started_at,
     performedBy: bm.performed_by_user_id,
-    status: bm.status || 'in_progress',
+    status: bm.status || '—',
     outcome: bm.outcome,
-    notes: bm.engineer_notes || '',
+    notes: bm.engineer_notes || '—',
   };
 }
 
@@ -189,21 +189,21 @@ export function App() {
   const datasets: Dataset[] = (backendDatasetsData?.items || []).map((d) => ({
     id: d.id,
     name: d.name,
-    version: 'v1.0',
-    adapterKey: 'cmapss_fd001',
-    adapterVersion: '1.0.0',
-    dataOrigin: 'simulated',
-    isDemo: d.name.toLowerCase().includes('demo') || d.slug.includes('demo'),
+    version: d.version || '—',
+    adapterKey: d.adapter_key || '—',
+    adapterVersion: d.adapter_version || '—',
+    dataOrigin: (d.data_origin ? d.data_origin : 'simulated') as any,
+    isDemo: Boolean(d.name.toLowerCase().includes('demo') || d.slug?.includes('demo')),
     status: (d.status === 'incompatible' ? 'rejected_incompatible' : d.status) as any,
-    checksumSha256: d.schema_mapping_hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    rowCount: d.row_count || 0,
-    unitCount: d.unit_count || 100,
-    uploadedBy: 'admin',
+    checksumSha256: d.schema_mapping_hash || '—',
+    rowCount: d.row_count != null ? d.row_count : 0,
+    unitCount: d.unit_count != null ? d.unit_count : 0,
+    uploadedBy: d.uploaded_by || '—',
     uploadedAt: d.created_at,
   }));
 
   // Resolve selected machine
-  const effectiveSelectedId = selectedMachineId || machines[0]?.id || '';
+  const effectiveSelectedId = selectedMachineId ? selectedMachineId : (machines[0]?.id ? machines[0].id : '');
   const selectedMachine = machines.find((m) => m.id === effectiveSelectedId) || machines[0];
 
   const { data: sensorHistoryData } = useSensorHistory(effectiveSelectedId, { downsample_to: 100 });
@@ -381,7 +381,7 @@ export function App() {
                 datasets={datasets}
                 currentUserRole={currentUser.role}
                 onOpenUploadWizard={() => {
-                  const firstDs = datasets[0]?.id || 'cmapss-fd001';
+                  const firstDs = datasets[0]?.id ? datasets[0].id : '';
                   setSchemaMappingDatasetId(firstDs);
                 }}
                 onViewSchemaMapping={handleViewSchemaMapping}

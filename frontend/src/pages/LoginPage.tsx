@@ -31,7 +31,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           });
         },
         onError: (err: any) => {
-          setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+          setErrorMessage(err.message ? err.message : 'Authentication failed. Please verify credentials.');
         },
       }
     );

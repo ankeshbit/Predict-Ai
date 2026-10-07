@@ -139,10 +139,10 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Machine Health Indicator */}
         <HealthGauge
-          score={machine.healthIndicator ?? 100}
+          score={machine.healthIndicator ?? null}
           band={machine.healthBand}
           components={machine.healthComponents || { failureRiskPenalty: 0, anomalyPenalty: 0, trendPenalty: 0, otherPenalty: 0 }}
-          currentCycle={machine.currentCycle ?? 1}
+          currentCycle={machine.currentCycle != null ? machine.currentCycle : undefined}
         />
 
         {/* Calibrated Failure Probability (Compact analytical presentation - Section 10) */}
@@ -154,16 +154,24 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
                   Failure Probability (Calibrated)
                 </div>
                 <div className="flex items-baseline gap-2.5 mt-1">
-                  <span className="text-3xl font-mono font-bold text-white tabular-nums">
-                    {(machine.failureProbability * 100).toFixed(0)}%
-                  </span>
-                  <Badge value={machine.riskLevel} size="sm" />
+                  {machine.failureProbability != null ? (
+                    <>
+                      <span className="text-3xl font-mono font-bold text-white tabular-nums">
+                        {(machine.failureProbability * 100).toFixed(0)}%
+                      </span>
+                      {machine.riskLevel && <Badge value={machine.riskLevel} size="sm" />}
+                    </>
+                  ) : (
+                    <span className="text-2xl font-mono font-bold text-slate-400">
+                      No score yet
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="text-right text-[11px] text-slate-500 font-mono">
                 <div>Horizon H</div>
-                <div className="text-slate-300 font-semibold">{machine.predictionHorizon} cycles</div>
+                <div className="text-slate-300 font-semibold">{machine.predictionHorizon != null ? `${machine.predictionHorizon} cycles` : '—'}</div>
               </div>
             </div>
 
@@ -172,9 +180,9 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
               <div className="h-2 w-full bg-[#1b2332] rounded-xs overflow-hidden flex">
                 <div
                   className={`h-full ${
-                    machine.failureProbability >= 0.5 ? 'bg-rose-500' : 'bg-blue-500'
+                    (machine.failureProbability != null && machine.failureProbability >= 0.5) ? 'bg-rose-500' : 'bg-blue-500'
                   }`}
-                  style={{ width: `${machine.failureProbability * 100}%` }}
+                  style={{ width: `${machine.failureProbability != null ? machine.failureProbability * 100 : 0}%` }}
                 />
               </div>
               <div className="flex justify-between text-[10px] font-mono text-slate-500">
@@ -305,11 +313,11 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
                 2. Engineer Decision & Maintenance Action
               </span>
               <span className="text-[10px] font-mono text-slate-500">
-                {maintenanceRecords.length} Records Logged
+                {(Array.isArray(maintenanceRecords) ? maintenanceRecords.length : 0)} Records Logged
               </span>
             </div>
 
-            {maintenanceRecords.length === 0 ? (
+            {(!Array.isArray(maintenanceRecords) || maintenanceRecords.length === 0) ? (
               <p className="text-xs text-slate-500 font-mono py-6 text-center">
                 No physical maintenance action logged for this unit yet.
               </p>

@@ -47,11 +47,13 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
 
   const handleResolveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const note = resolutionNote.trim();
+    if (!note) return;
     if (selectedAlertForResolve) {
       onResolveAlert(
         selectedAlertForResolve.id,
         resolutionType,
-        resolutionNote.trim() || 'Verified and resolved by engineering review.'
+        note
       );
       setSelectedAlertForResolve(null);
       if (selectedAlertForDetail?.id === selectedAlertForResolve.id) {
@@ -558,7 +560,8 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
               variant="primary"
               size="sm"
               type="submit"
-              className="bg-emerald-600 hover:bg-emerald-500 border-emerald-500"
+              disabled={!resolutionNote.trim()}
+              className="bg-emerald-600 hover:bg-emerald-500 border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm Resolution
             </Button>

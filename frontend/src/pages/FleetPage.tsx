@@ -164,32 +164,46 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                         </td>
 
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-slate-100">
-                              {m.healthIndicator != null ? m.healthIndicator : '—'}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">/ 100</span>
-                            <Badge value={m.healthBand} size="sm" />
-                          </div>
-                          <div className="w-28 h-1 bg-[#1a2333] rounded-full mt-1.5 overflow-hidden">
-                            <div
-                              className={`h-full ${
-                                (m.healthIndicator ?? 0) >= 80
-                                  ? 'bg-emerald-500'
-                                  : (m.healthIndicator ?? 0) >= 60
-                                  ? 'bg-amber-500'
-                                  : 'bg-red-500'
-                              }`}
-                              style={{ width: `${Math.max(0, Math.min(100, m.healthIndicator ?? 0))}%` }}
-                            />
-                          </div>
+                          {m.healthIndicator != null ? (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-slate-100">
+                                  {m.healthIndicator}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-mono">/ 100</span>
+                                {m.healthBand && <Badge value={m.healthBand} size="sm" />}
+                              </div>
+                              <div className="w-28 h-1 bg-[#1a2333] rounded-full mt-1.5 overflow-hidden">
+                                <div
+                                  className={`h-full ${
+                                    m.healthIndicator >= 80
+                                      ? 'bg-emerald-500'
+                                      : m.healthIndicator >= 60
+                                      ? 'bg-amber-500'
+                                      : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${Math.max(0, Math.min(100, m.healthIndicator))}%` }}
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <span className="font-mono text-xs text-slate-400">No score yet</span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-blue-400">
-                          {m.failureProbability != null ? `${(m.failureProbability * 100).toFixed(0)}%` : '—'}
-                          <span className="text-[10px] text-slate-400 font-normal ml-1 font-mono">
-                            ({m.riskLevel})
-                          </span>
+                          {m.failureProbability != null ? (
+                            <>
+                              <span>{(m.failureProbability * 100).toFixed(0)}%</span>
+                              {m.riskLevel && (
+                                <span className="text-[10px] text-slate-400 font-normal ml-1 font-mono">
+                                  ({m.riskLevel})
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-normal">No score yet</span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">

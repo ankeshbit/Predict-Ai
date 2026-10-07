@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from './client';
 
+export interface HealthBandConfig {
+  key: string;
+  label: string;
+  min_score: number;
+  max_score: number;
+}
+
 export interface HealthConfig {
   id: string;
   version: string;
@@ -9,6 +16,7 @@ export interface HealthConfig {
   trend_enabled: boolean;
   is_active: boolean;
   created_at: string;
+  bands?: HealthBandConfig[];
 }
 
 export interface RiskBands {
@@ -61,7 +69,7 @@ export interface AuditLogItem {
 export function useHealthConfig() {
   return useQuery({
     queryKey: ['settings', 'health-indicator'],
-    queryFn: () => apiFetch<HealthConfig>('/settings/health-indicator'),
+    queryFn: () => apiFetch<HealthConfig>('/health-config'),
   });
 }
 

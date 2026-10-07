@@ -53,9 +53,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* 3 Reference Machines (§7.2 Demo Scenario) */}
         <div>
-          <h4 className="font-semibold text-slate-100 uppercase tracking-wider text-[11px] mb-2.5">
-            Key Demonstrator Engines in Fleet
-          </h4>
+          <div className="flex items-center justify-between mb-2.5">
+            <h4 className="font-semibold text-slate-100 uppercase tracking-wider text-[11px]">
+              Key Demonstrator Engines in Fleet
+            </h4>
+            <span className="text-[10px] font-mono text-amber-400/90">
+              Example only (not live data)
+            </span>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-3 rounded-xl bg-[#090f1d] border border-emerald-900/40 space-y-1.5">
@@ -66,6 +71,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <p className="text-[11px] text-slate-400">
                 Health Indicator 94/100. Low failure probability (6%). Nominal baseline sensors.
               </p>
+              <div className="text-[10px] text-amber-400/90 font-mono italic">
+                Example only (not live data)
+              </div>
             </div>
 
             <div className="p-3 rounded-xl bg-[#090f1d] border border-amber-900/40 space-y-1.5">
@@ -76,6 +84,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <p className="text-[11px] text-slate-400">
                 Health Indicator 64/100. Failure probability 42%. Mild upward drift on sensor_11.
               </p>
+              <div className="text-[10px] text-amber-400/90 font-mono italic">
+                Example only (not live data)
+              </div>
             </div>
 
             <div className="p-3 rounded-xl bg-[#090f1d] border border-rose-900/60 space-y-1.5 ring-1 ring-rose-500/30">
@@ -86,6 +97,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <p className="text-[11px] text-slate-400">
                 Health Indicator 34/100. Failure probability 82%. Open alert with AI recommendation!
               </p>
+              <div className="text-[10px] text-amber-400/90 font-mono italic">
+                Example only (not live data)
+              </div>
             </div>
           </div>
         </div>

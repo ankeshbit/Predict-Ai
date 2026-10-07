@@ -3,8 +3,8 @@ import type { HealthBand, HealthComponents } from '../../types';
 import { Badge } from '../ui/Badge';
 
 interface HealthGaugeProps {
-  score: number; // 0 - 100
-  band: HealthBand;
+  score: number | null; // 0 - 100 or null if unscored
+  band?: HealthBand | null;
   components: HealthComponents;
   currentCycle?: number;
   className?: string;
@@ -17,7 +17,7 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
   currentCycle,
   className = '',
 }) => {
-  const getBandColor = (b: HealthBand) => {
+  const getBandColor = (b?: HealthBand | null) => {
     switch (b) {
       case 'Excellent':
       case 'Healthy':
@@ -33,6 +33,7 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
   };
 
   const getExplanation = () => {
+    if (score == null) return 'No machine health calculation available yet.';
     if (score >= 85) return 'Optimal operational health; all monitored channels within nominal training envelopes.';
     if (score >= 70) return 'Nominal health with minor expected cycle accumulation across baseline sensors.';
     if (score >= 50) return 'Degradation precursors detected; early drift emerging on thermodynamic sensors.';
@@ -49,13 +50,19 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
             Machine Health Indicator
           </div>
           <div className="flex items-baseline gap-2.5 mt-1">
-            <span className="text-3xl font-mono font-bold text-white tabular-nums">{score}</span>
-            <span className="text-xs font-mono text-slate-500">/ 100</span>
-            <Badge value={band} size="sm" />
+            {score != null ? (
+              <>
+                <span className="text-3xl font-mono font-bold text-white tabular-nums">{score}</span>
+                <span className="text-xs font-mono text-slate-500">/ 100</span>
+                {band && <Badge value={band} size="sm" />}
+              </>
+            ) : (
+              <span className="text-2xl font-mono font-bold text-slate-400">No score yet</span>
+            )}
           </div>
         </div>
 
-        {currentCycle !== undefined && (
+        {currentCycle !== undefined && currentCycle !== null && (
           <div className="text-right text-[11px] font-mono text-slate-500">
             <div>As of cycle</div>
             <div className="text-slate-300 font-semibold">{currentCycle}</div>
@@ -66,10 +73,12 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
       {/* Horizontal Segmented Health Scale */}
       <div className="space-y-1.5">
         <div className="h-2 w-full bg-[#1b2332] rounded-xs overflow-hidden flex">
-          <div
-            className={`h-full ${getBandColor(band)} transition-all duration-300`}
-            style={{ width: `${Math.max(2, score)}%` }}
-          />
+          {score != null && (
+            <div
+              className={`h-full ${getBandColor(band)} transition-all duration-300`}
+              style={{ width: `${Math.max(2, score)}%` }}
+            />
+          )}
         </div>
         <div className="flex justify-between text-[10px] font-mono text-slate-500 select-none">
           <span>0 (Critical)</span>

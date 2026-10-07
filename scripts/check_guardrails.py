@@ -350,6 +350,104 @@ def check_docs_and_config_no_credential_literals():
     return True
 
 
+def check_frontend_no_invented_fallbacks():
+    """
+    Guardrail:
+    Ensures zero invented fallbacks in frontend/src/pages and App.tsx:
+    - No ?? <number>
+    - No || <number>
+    - No || '<text>' (allow-list only '—')
+    - No 64-hex literals
+    - No forbidden strings: 'Test Cell', 'RULE_DEFAULT', 'Platt', 'Turbofan', 'Offline Evaluation'
+      (banner string "Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data" is preserved per PRD)
+    """
+    targets = [ROOT_DIR / "frontend" / "src" / "App.tsx"]
+    pages_dir = ROOT_DIR / "frontend" / "src" / "pages"
+    if pages_dir.exists():
+        for p in pages_dir.rglob("*.tsx"):
+            targets.append(p)
+        for p in pages_dir.rglob("*.ts"):
+            targets.append(p)
+
+    violations = []
+
+    # 1. ?? <number>
+    nullish_number_re = re.compile(r'\?\?\s*\d+(?:\.\d+)?')
+    # 2. || <number>
+    or_number_re = re.compile(r'\|\|\s*\d+(?:\.\d+)?')
+    # 3. || '<text>' (allow-list only '—')
+    or_string_re = re.compile(r'\|\|\s*([\'"])([^\'"]*)\1')
+    # 4. 64-hex literal
+    hex64_re = re.compile(r'\b[a-fA-F0-9]{64}\b')
+    # 5. forbidden strings
+    forbidden_strings = ['Test Cell', 'RULE_DEFAULT', 'Platt', 'Turbofan', 'Offline Evaluation']
+
+    for target in sorted(set(targets)):
+        if not target.is_file():
+            continue
+        rel_path = target.relative_to(ROOT_DIR)
+        rel_str = str(rel_path).replace("\\", "/")
+        if "/tests/" in rel_str or ".test." in rel_str or ".spec." in rel_str:
+            continue
+        try:
+            content = target.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+
+        for line_idx, line in enumerate(content.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+                continue
+
+            # Check 1: ?? <number>
+            m_num = nullish_number_re.search(line)
+            if m_num:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden nullish number fallback '?? <number>': '{m_num.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 2: || <number>
+            m_or_num = or_number_re.search(line)
+            if m_or_num:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden or number fallback '|| <number>': '{m_or_num.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 3: || '<text>' (allow-list only '—')
+            for m_or_str in or_string_re.finditer(line):
+                text_val = m_or_str.group(2)
+                if text_val != '—':
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden string fallback '|| <text>': '{m_or_str.group(0)}' (only '—' allowed) in: {stripped[:100]}"
+                    )
+
+            # Check 4: 64-hex literal
+            m_hex = hex64_re.search(line)
+            if m_hex:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden 64-hex literal: '{m_hex.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 5: forbidden strings
+            # Allow PRD required banner line: "Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data"
+            if "Demo Dataset: NASA C-MAPSS FD001" in line:
+                continue
+            for s in forbidden_strings:
+                if s in line:
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden string literal '{s}' in: {stripped[:100]}"
+                    )
+
+    if violations:
+        print("[-] FAILED: Invented data fallbacks or forbidden literals detected in frontend/src/pages and App.tsx:")
+        for v in violations:
+            print(f"    {v}")
+        return False
+
+    print("[+] PASSED: Frontend invented fallback guardrail passed (zero ?? <number>, || <number>, || '<text>', 64-hex, or forbidden strings).")
+    return True
+
+
 def main():
     success = True
     if not check_physical_sensor_semantics():
@@ -365,6 +463,9 @@ def main():
         success = False
 
     if not check_docs_and_config_no_credential_literals():
+        success = False
+
+    if not check_frontend_no_invented_fallbacks():
         success = False
 
     if not success:

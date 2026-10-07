@@ -154,6 +154,8 @@ jobs:
         run: |
           ADMIN_PW=$(openssl rand -base64 24)
           ENGINEER_PW=$(openssl rand -base64 24)
+          echo "::add-mask::$ADMIN_PW"
+          echo "::add-mask::$ENGINEER_PW"
           echo "E2E_ADMIN_EMAIL=admin@predicore.internal" >> $GITHUB_ENV
           echo "E2E_ADMIN_PASSWORD=$ADMIN_PW" >> $GITHUB_ENV
           echo "INITIAL_ADMIN_PASSWORD=$ADMIN_PW" >> $GITHUB_ENV
@@ -161,7 +163,7 @@ jobs:
           echo "E2E_ENGINEER_PASSWORD=$ENGINEER_PW" >> $GITHUB_ENV
           echo "INITIAL_ENGINEER_PASSWORD=$ENGINEER_PW" >> $GITHUB_ENV
 
-      - name: Run Database Migrations & Seed Demo
+      - name: Run Database Migrations (Unseeded)
         env:
           DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
           DATABASE_URL_DIRECT: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
@@ -175,8 +177,6 @@ jobs:
           cd backend
           alembic upgrade head
           python -m app.cli seed-defaults
-          python -m app.cli register-model --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z --activate
-          python -m app.cli seed-demo --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z
 
       - name: Start FastAPI Backend
         env:
@@ -193,6 +193,27 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Run Playwright E2E Tests Against Migrated Unseeded DB (Assert Empty State)
+        env:
+          E2E_ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          E2E_ENGINEER_EMAIL: ${{ env.E2E_ENGINEER_EMAIL }}
+          E2E_ENGINEER_PASSWORD: ${{ env.E2E_ENGINEER_PASSWORD }}
+        run: |
+          cd frontend
+          npx playwright test e2e/unseeded_empty_state.spec.ts
+
+      - name: Seed Demo Data
+        env:
+          DATABASE_URL: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
+          DATABASE_URL_DIRECT: postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai
+          ENVIRONMENT: development
+          SECRET_KEY: test_secret_key_minimum_32_characters_long
+        run: |
+          cd backend
+          python -m app.cli register-model --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z --activate
+          python -m app.cli seed-demo --bundle-path model_artifacts/cmapss-fd001-h30-20261001T203719Z
+
       - name: Run Playwright E2E Tests Against Seeded DB
         env:
           E2E_ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
@@ -201,4 +222,4 @@ jobs:
           E2E_ENGINEER_PASSWORD: ${{ env.E2E_ENGINEER_PASSWORD }}
         run: |
           cd frontend
-          npx playwright test
+          npx playwright test e2e/first_run_journey.spec.ts e2e/demo_replay.spec.ts

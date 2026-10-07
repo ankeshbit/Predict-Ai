@@ -26,19 +26,19 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         version: m.bundle_version,
         task: m.task,
         modelType: m.model_type,
-        adapterKey: m.adapter_key || 'cmapss_fd001',
+        adapterKey: m.adapter_key || '—',
         status: m.is_active ? 'active' : 'registered',
-        horizon: m.prediction_horizon ?? m.horizon ?? 30,
-        horizonUnit: m.prediction_horizon_unit ?? m.horizon_unit ?? 'cycles',
-        decisionThreshold: m.decision_threshold ?? 0.10,
+        horizon: m.prediction_horizon != null ? m.prediction_horizon : (m.horizon != null ? m.horizon : null),
+        horizonUnit: m.prediction_horizon_unit ? m.prediction_horizon_unit : (m.horizon_unit ? m.horizon_unit : 'cycles'),
+        decisionThreshold: m.decision_threshold != null ? m.decision_threshold : null,
         trainingDataset: 'NASA C-MAPSS FD001',
         trainingDate: m.created_at,
         gitCommit: 'HEAD',
         modelCard: {
           targetDefinition: 'Failure within H cycles',
-          calibrationInfo: 'Platt Sigmoid Calibrated',
+          calibrationInfo: m.model_card?.calibration_info ? m.model_card.calibration_info : '—',
           featuresUsed: [],
-          intendedUse: 'Simulated turbofan fleet risk screening',
+          intendedUse: 'Simulated fleet risk screening',
           limitations: 'Trained exclusively on C-MAPSS FD001 simulation run-to-failure.',
         },
       }));
@@ -46,7 +46,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [selectedSet, setSelectedSet] = useState<EvalSetKey>('internal_test');
 
-  const currentModelId = selectedModelId || activeModels[0]?.id || '';
+  const currentModelId = selectedModelId ? selectedModelId : (activeModels[0]?.id ? activeModels[0].id : '');
   const activeModel = activeModels.find((m) => m.id === currentModelId) || activeModels[0];
 
   const { data: apiEvaluation, isError } = useModelEvaluation(currentModelId);
@@ -148,10 +148,10 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
   // Confusion matrix formatting
   const rawCm = currentSetCurves.confusion_matrix || (evaluation as any).confusion_matrix || {};
   const confusionMatrix = {
-    tn: rawCm.tn ?? 0,
-    fp: rawCm.fp ?? 0,
-    fn: rawCm.fn ?? 0,
-    tp: rawCm.tp ?? 0,
+    tn: rawCm.tn != null ? rawCm.tn : 0,
+    fp: rawCm.fp != null ? rawCm.fp : 0,
+    fn: rawCm.fn != null ? rawCm.fn : 0,
+    tp: rawCm.tp != null ? rawCm.tp : 0,
   };
 
   const featureImportance = (evaluation as any).feature_importance || (evaluation as any).featureImportance || [];
@@ -210,12 +210,12 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Evaluated At</span>
-          <span className="font-mono text-slate-200 mt-0.5 block truncate">{(evaluation as any).evaluated_at || (evaluation as any).evaluatedAt || 'Offline Evaluation'}</span>
+          <span className="font-mono text-slate-200 mt-0.5 block truncate">{(evaluation as any).evaluated_at || (evaluation as any).evaluatedAt || '—'}</span>
           <span className="text-[11px] text-slate-400 font-mono">Offline execution</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Calibration Method</span>
-          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">{(evaluation as any).calibration_method ?? 'Platt Scaling (Sigmoid)'}</span>
+          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">{(evaluation as any).calibration_method ?? '—'}</span>
           <span className="text-[11px] text-slate-400 font-mono">
             Decision Threshold: {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
           </span>
@@ -233,7 +233,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
               : 'text-slate-300 hover:text-white hover:bg-[#192231]'
           }`}
         >
-          Internal Test (20 Held-out Engines)
+          Internal Test
         </button>
         <button
           onClick={() => setSelectedSet('official_test_all_rows')}
@@ -243,7 +243,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
               : 'text-slate-300 hover:text-white hover:bg-[#192231]'
           }`}
         >
-          Official Benchmark: All Rows (13,096 cycles)
+          Official Benchmark: All Rows{allMetrics?.official_test_all_rows?.sample_count ? ` (${Number(allMetrics.official_test_all_rows.sample_count).toLocaleString()} cycles)` : ''}
         </button>
         <button
           onClick={() => setSelectedSet('official_test_last_cycle_per_unit')}
@@ -253,7 +253,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
               : 'text-slate-300 hover:text-white hover:bg-[#192231]'
           }`}
         >
-          Official Benchmark: Last Cycle Per Unit (100 engines)
+          Official Benchmark: Last Cycle Per Unit{allMetrics?.official_test_last_cycle_per_unit?.unit_count ? ` (${allMetrics.official_test_last_cycle_per_unit.unit_count} engines)` : ''}
         </button>
       </div>
 
@@ -312,7 +312,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
           Secondary Benchmark: <strong className="text-slate-200">Accuracy = {metrics.accuracy}</strong> (imbalance-sensitive; non-primary)
         </span>
         <span className="text-slate-500 text-[11px]">
-          Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method ?? 'Platt Sigmoid'}
+          Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method ?? '—'}
         </span>
       </div>
 
@@ -321,7 +321,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
 
       {/* Analytical Charts: Calibration Curve & Confusion Matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <CalibrationPlot data={calData} brierScore={Number(metrics.brierScore) || 0} />
+        <CalibrationPlot data={calData} brierScore={Number.isNaN(Number(metrics.brierScore)) ? 0 : Number(metrics.brierScore)} />
 
         <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
           <div>

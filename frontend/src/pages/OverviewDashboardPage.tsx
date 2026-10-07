@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ArrowRight, Cpu, HelpCircle, Play, Square } from 'lucide-react';
-import { useDashboardSummary, useCurrentUser } from '../api';
+import { useDashboardSummary, useCurrentUser, useHealthConfig } from '../api';
 import { useDemoReplayStatus, useStartReplay, useStopReplay } from '../api/demo';
 
 interface OverviewDashboardProps {
@@ -15,13 +15,13 @@ interface OverviewDashboardProps {
   onOpenOnboarding: () => void;
 }
 
-const HEALTH_BANDS = [
-  { key: 'Excellent', label: 'Excellent (86–100)', color: 'text-emerald-400', bar: 'bg-emerald-500' },
-  { key: 'Healthy',   label: 'Healthy (71–85)',   color: 'text-teal-400',    bar: 'bg-teal-500'    },
-  { key: 'Warning',   label: 'Warning (51–70)',   color: 'text-amber-400',   bar: 'bg-amber-500'   },
-  { key: 'Poor',      label: 'Poor (31–50)',      color: 'text-orange-400',  bar: 'bg-orange-500'  },
-  { key: 'Critical',  label: 'Critical (0–30)',   color: 'text-rose-400',    bar: 'bg-rose-500'    },
-] as const;
+const HEALTH_BAND_COLORS: Record<string, { color: string; bar: string }> = {
+  Excellent: { color: 'text-emerald-400', bar: 'bg-emerald-500' },
+  Healthy:   { color: 'text-teal-400',    bar: 'bg-teal-500'    },
+  Warning:   { color: 'text-amber-400',   bar: 'bg-amber-500'   },
+  Poor:      { color: 'text-orange-400',  bar: 'bg-orange-500'  },
+  Critical:  { color: 'text-rose-400',    bar: 'bg-rose-500'    },
+};
 
 export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
   machines,
@@ -32,27 +32,44 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
 }) => {
   const { data: summary } = useDashboardSummary();
   const { data: currentUser } = useCurrentUser();
+  const { data: healthConfig } = useHealthConfig();
   const isAdmin = currentUser?.role === 'admin';
   const { data: replayStatus } = useDemoReplayStatus(Boolean(isAdmin));
   const startReplayMutation = useStartReplay();
   const stopReplayMutation = useStopReplay();
 
-  const totalMachines = summary?.total_machines ?? machines.length;
-  const healthyCount  = (summary?.health_band_counts?.['Excellent'] ?? 0) + (summary?.health_band_counts?.['Healthy'] ?? 0);
-  const warningCount  = (summary?.health_band_counts?.['Warning'] ?? 0) + (summary?.health_band_counts?.['Poor'] ?? 0);
-  const criticalCount = summary?.health_band_counts?.['Critical'] ?? 0;
+  const bandCounts = summary?.health_band_counts;
+  const getBandCount = (k: string) => (bandCounts && typeof bandCounts[k] === 'number') ? bandCounts[k] : 0;
+
+  const totalMachines = summary?.total_machines != null ? summary.total_machines : machines.length;
+  const healthyCount  = getBandCount('Excellent') + getBandCount('Healthy');
+  const warningCount  = getBandCount('Warning') + getBandCount('Poor');
+  const criticalCount = getBandCount('Critical');
   const avgHealth = summary?.average_health_indicator != null
     ? Math.round(summary.average_health_indicator)
     : null;
-  const openAlertsCount = summary?.open_alerts_count ?? alerts.filter((a) => a.status === 'open').length;
-  const activeCount = summary?.active_count ?? summary?.operational_counts?.['active'] ?? 0;
-  const maintCount  = summary?.maintenance_count ?? summary?.operational_counts?.['maintenance'] ?? 0;
+  const openAlertsCount = summary?.open_alerts_count != null ? summary.open_alerts_count : alerts.filter((a) => a.status === 'open').length;
+  const activeCount = summary?.active_count != null ? summary.active_count : (summary?.operational_counts?.['active'] != null ? summary.operational_counts['active'] : 0);
+  const maintCount  = summary?.maintenance_count != null ? summary.maintenance_count : (summary?.operational_counts?.['maintenance'] != null ? summary.operational_counts['maintenance'] : 0);
   const openAlerts = alerts.filter((a) => a.status === 'open');
 
+  // Labels and ranges from GET /health-config (Requirement B)
+  const healthBands = (healthConfig?.bands || []).map((b) => {
+    const c = HEALTH_BAND_COLORS[b.key];
+    return {
+      key: b.key,
+      label: b.label,
+      color: c ? c.color : 'text-slate-400',
+      bar: c ? c.bar : 'bg-blue-500',
+    };
+  });
+
   // Sorted by failure probability descending — use backend data where available
-  const priorityMachines = [...machines].sort(
-    (a, b) => (b.failureProbability ?? 0) - (a.failureProbability ?? 0)
-  );
+  const priorityMachines = [...machines].sort((a, b) => {
+    const aFp = a.failureProbability != null ? a.failureProbability : -1;
+    const bFp = b.failureProbability != null ? b.failureProbability : -1;
+    return bFp - aFp;
+  });
 
   return (
     <div className="space-y-5 animate-in fade-in duration-100 select-none">
@@ -251,7 +268,7 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
               ) : (
                 priorityMachines.map((m) => {
                   const isCrit = m.riskLevel === 'Critical';
-                  const fp = m.failureProbability ?? 0;
+                  const fp = m.failureProbability;
 
                   return (
                     <tr
@@ -277,11 +294,11 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
                             <span className="text-[10px] text-slate-500"> /100</span>
                           </>
                         ) : (
-                          <span className="text-slate-500">—</span>
+                          <span className="text-slate-400 text-[11px]">No score yet</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-mono">
-                        {m.currentCycle != null ? (
+                        {fp != null ? (
                           <span
                             className={`font-bold ${
                               fp >= 0.5 ? 'text-rose-400' : 'text-slate-200'
@@ -290,7 +307,7 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
                             {(fp * 100).toFixed(0)}%
                           </span>
                         ) : (
-                          <span className="text-slate-500">—</span>
+                          <span className="text-slate-400 text-[11px]">No score yet</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3">
@@ -372,17 +389,17 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
           </div>
         </Card>
 
-        {/* Fleet Health Band Distribution — from API */}
+        {/* Fleet Health Band Distribution — from GET /health-config */}
         <Card
           title="Distribution &amp; Health Bands"
           subtitle="Fixed bands covering 0–100 deterministic scoring"
         >
           <div className="space-y-3 text-xs font-mono">
-            {summary == null ? (
+            {summary == null || healthBands.length === 0 ? (
               <p className="text-slate-500 py-4 text-center">Loading distribution…</p>
             ) : (
-              HEALTH_BANDS.map(({ key, label, color, bar }) => {
-                const count = summary.health_band_counts?.[key] ?? 0;
+              healthBands.map(({ key, label, color, bar }) => {
+                const count = getBandCount(key);
                 const pct = totalMachines > 0 ? Math.round((count / totalMachines) * 100) : 0;
                 return (
                   <div key={key} className="space-y-1">

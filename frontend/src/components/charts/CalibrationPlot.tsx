@@ -24,7 +24,7 @@ export const CalibrationPlot: React.FC<CalibrationPlotProps> = ({ data, brierSco
           <p className="text-[11px] text-slate-400">Mean Predicted Failure Probability vs Empirical Observed Fraction</p>
         </div>
         <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/60">
-          Brier Score: {brierScore} (Platt Scaled)
+          Brier Score: {brierScore}
         </span>
       </div>
 

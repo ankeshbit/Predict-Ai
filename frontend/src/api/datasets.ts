@@ -11,6 +11,11 @@ export interface BackendDataset {
   unit_count?: number | null;
   schema_mapping?: Record<string, string> | null;
   schema_mapping_hash?: string | null;
+  version?: string | null;
+  adapter_key?: string | null;
+  adapter_version?: string | null;
+  data_origin?: string | null;
+  uploaded_by?: string | null;
   status: string;
   error_message?: string | null;
   created_at: string;

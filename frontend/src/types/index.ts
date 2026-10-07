@@ -61,11 +61,11 @@ export interface Machine {
   installDate: string;
   operationalStatus: MachineStatus;
   healthIndicator: number | null;
-  healthBand: HealthBand;
+  healthBand: HealthBand | null;
   healthComponents: HealthComponents;
-  failureProbability: number;   // 0.0 until first score, then real value
+  failureProbability: number | null;
   predictionHorizon: number | null;
-  riskLevel: RiskLevel;
+  riskLevel: RiskLevel | null;
   currentCycle: number | null;
   anomalySeverity: number | null;
   anomalyScore: number | null;
@@ -116,7 +116,7 @@ export interface Alert {
   type: 'high_failure_risk' | 'severe_anomaly' | 'rapid_deterioration';
   severity: AlertSeverity;
   status: AlertStatus;
-  asOfCycle: number;
+  asOfCycle: number | null;
   triggeredAt: string;
   message: string;
   reliabilityStatus: ReliabilityStatus;

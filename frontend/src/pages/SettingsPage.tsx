@@ -46,13 +46,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUserRole }) =
   const [overrideTrendEnabled, setTrendEnabled] = useState<boolean | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  const wAnom = overrideWAnom ?? (healthConfig ? Math.round((healthConfig.anomaly_weight ?? 0.3) * 100) : 30);
-  const trendEnabled = overrideTrendEnabled ?? (healthConfig?.trend_enabled ?? true);
+  const wAnom = overrideWAnom != null
+    ? overrideWAnom
+    : (healthConfig && typeof healthConfig.anomaly_weight === 'number'
+      ? Math.round(healthConfig.anomaly_weight * 100)
+      : null);
+  const trendEnabled = overrideTrendEnabled != null
+    ? overrideTrendEnabled
+    : (healthConfig && typeof healthConfig.trend_enabled === 'boolean'
+      ? healthConfig.trend_enabled
+      : false);
 
-  const wRisk = 100 - wAnom;
+  const wRisk = wAnom != null ? 100 - wAnom : null;
 
   const handleSaveHealth = (e: React.FormEvent) => {
     e.preventDefault();
+    if (wAnom == null) return;
     updateHealth.mutate(
       { anomaly_weight: wAnom / 100, trend_enabled: trendEnabled },
       {
@@ -165,7 +174,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUserRole }) =
                   <input
                     type="text"
                     disabled
-                    value="NASA C-MAPSS FD001 — Simulated Turbofan Engine"
+                    value="NASA C-MAPSS FD001 (Simulated)"
                     className="w-full px-3 py-1.5 rounded bg-[#161f2e] border border-[#253246] text-xs text-slate-200 font-sans"
                   />
                 </div>
@@ -302,6 +311,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUserRole }) =
                 <div className="flex items-center gap-2 text-slate-400 font-mono text-xs">
                   <Loader2 className="w-4 h-4 animate-spin" /> Loading health config…
                 </div>
+              ) : !healthConfig || wAnom == null ? (
+                <p className="text-slate-500 font-mono text-xs py-4 text-center">
+                  Health configuration not available.
+                </p>
               ) : (
                 <form onSubmit={handleSaveHealth} className="space-y-5 max-w-xl">
                   <div className="space-y-4">
@@ -309,10 +322,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUserRole }) =
                     <div className="p-3 rounded-md bg-[#131924] border border-[#222b3b]">
                       <div className="flex justify-between items-center mb-1.5">
                         <span className="font-semibold text-slate-200">Failure Risk Weight (W_risk)</span>
-                        <span className="font-mono text-blue-400 font-bold text-xs">{wRisk}%</span>
+                        <span className="font-mono text-blue-400 font-bold text-xs">{wRisk != null ? `${wRisk}%` : '—'}</span>
                       </div>
                       <div className="h-1.5 w-full bg-[#1b2536] rounded overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded transition-all" style={{ width: `${wRisk}%` }} />
+                        <div className="h-full bg-blue-500 rounded transition-all" style={{ width: `${wRisk != null ? wRisk : 0}%` }} />
                       </div>
                       <div className="text-[10px] text-slate-400 mt-1">
                         Direct penalty from calibrated failure probability at horizon H.
@@ -324,13 +337,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ currentUserRole }) =
                     <div className="p-3 rounded-md bg-[#131924] border border-[#222b3b]">
                       <div className="flex justify-between items-center mb-1.5">
                         <span className="font-semibold text-slate-200">Anomaly Severity Weight (W_anom)</span>
-                        <span className="font-mono text-amber-400 font-bold text-xs">{wAnom}%</span>
+                        <span className="font-mono text-amber-400 font-bold text-xs">{wAnom != null ? `${wAnom}%` : '—'}</span>
                       </div>
                       <input
                         type="range"
                         min="0"
                         max="100"
-                        value={wAnom}
+                        value={wAnom != null ? wAnom : 0}
                         disabled={currentUserRole !== 'admin'}
                         onChange={(e) => setWAnom(Number(e.target.value))}
                         className="w-full h-1.5 bg-[#1b2536] rounded appearance-none cursor-pointer accent-amber-500"
