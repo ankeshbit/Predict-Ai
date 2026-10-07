@@ -34,11 +34,20 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
 
   const getExplanation = () => {
     if (score == null) return 'No machine health calculation available yet.';
-    if (score >= 85) return 'Optimal operational health; all monitored channels within nominal training envelopes.';
-    if (score >= 70) return 'Nominal health with minor expected cycle accumulation across baseline sensors.';
-    if (score >= 50) return 'Degradation precursors detected; early drift emerging on thermodynamic sensors.';
-    if (score >= 30) return 'Substantial health impairment driven by failure risk and continuous anomaly episode.';
-    return 'Critical degradation stage; immediate mechanical inspection required prior to further cycles.';
+    switch (band) {
+      case 'Excellent':
+        return 'Optimal operational health; all monitored channels within nominal training envelopes.';
+      case 'Healthy':
+        return 'Nominal health with minor expected cycle accumulation across baseline sensors.';
+      case 'Warning':
+        return 'Degradation precursors detected; early drift emerging on thermodynamic sensors.';
+      case 'Poor':
+        return 'Substantial health impairment driven by failure risk and continuous anomaly episode.';
+      case 'Critical':
+        return 'Critical degradation stage; immediate mechanical inspection required prior to further cycles.';
+      default:
+        return 'Machine health evaluated within designated operating profile.';
+    }
   };
 
   return (

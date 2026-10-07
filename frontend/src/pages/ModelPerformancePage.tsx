@@ -204,7 +204,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Prediction Horizon</span>
           <span className="font-mono font-semibold text-blue-400 mt-0.5 block">
-            {activeModel.horizon != null ? `H = ${activeModel.horizon} ${activeModel.horizonUnit ?? 'cycles'}` : 'H = N/A'}
+            {activeModel.horizon != null ? `H = ${activeModel.horizon}${activeModel.horizonUnit ? ` ${activeModel.horizonUnit}` : ''}` : 'H = N/A'}
           </span>
           <span className="text-[11px] text-slate-400 font-mono">Configured, not optimized</span>
         </div>
@@ -403,7 +403,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
                   <td className="py-2.5 text-slate-400 truncate max-w-xs">{m.version}</td>
                   <td className="py-2.5 text-blue-400">
                     {m.task === 'failure_risk' && (m as any).horizon != null
-                      ? `H = ${(m as any).horizon} ${(m as any).horizon_unit ?? 'cycles'}`
+                      ? `H = ${(m as any).horizon}${((m as any).horizon_unit || (m as any).horizonUnit) ? ` ${(m as any).horizon_unit || (m as any).horizonUnit}` : ''}`
                       : 'N/A'}
                   </td>
                   <td className="py-2.5 text-slate-300">

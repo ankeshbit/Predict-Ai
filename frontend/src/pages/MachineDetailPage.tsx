@@ -93,7 +93,14 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
             </span>
             <Badge value={machine.operationalStatus} size="xs" />
             <Badge value={machine.healthBand} size="xs" />
+            {machine.datasetBadge && <Badge value={machine.datasetBadge} variant="demo" size="xs" />}
           </div>
+
+          {machine.isDemo && (
+            <p className="text-[11px] text-slate-400">
+              Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data
+            </p>
+          )}
 
           <div className="text-xs text-slate-400 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono">
             <span>Name: <strong className="text-slate-200 font-sans">{machine.name}</strong></span>
@@ -180,7 +187,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
               <div className="h-2 w-full bg-[#1b2332] rounded-xs overflow-hidden flex">
                 <div
                   className={`h-full ${
-                    (machine.failureProbability != null && machine.failureProbability >= 0.5) ? 'bg-rose-500' : 'bg-blue-500'
+                    machine.riskLevel === 'Critical' || machine.riskLevel === 'High' ? 'bg-rose-500' : 'bg-blue-500'
                   }`}
                   style={{ width: `${machine.failureProbability != null ? machine.failureProbability * 100 : 0}%` }}
                 />

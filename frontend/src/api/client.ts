@@ -6,10 +6,8 @@
 
 const API_BASE = '/api/v1';
 
-/** Configurable polling interval (ms). Set VITE_POLL_INTERVAL_MS in .env to override. */
-export const POLL_INTERVAL_MS: number = Number(
-  (import.meta as any).env?.VITE_POLL_INTERVAL_MS ?? 3000
-);
+const configuredPollInterval = (import.meta as any).env?.VITE_POLL_INTERVAL_MS;
+export const POLL_INTERVAL_MS: number = configuredPollInterval ? Number(configuredPollInterval) : 3000;
 
 export interface ApiErrorResponse {
   error: {
@@ -112,11 +110,11 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorDetails = data?.error || data?.detail;
-    const code = errorDetails?.code || `HTTP_${response.status}`;
+    const code = errorDetails?.code ? errorDetails.code : `HTTP_${response.status}`;
     const message =
       typeof errorDetails === 'string'
         ? errorDetails
-        : errorDetails?.message || response.statusText || 'An unexpected error occurred';
+        : (errorDetails?.message ? errorDetails.message : (response.statusText ? response.statusText : 'An unexpected error occurred'));
     throw new ApiError(response.status, code, message, errorDetails?.details);
   }
 

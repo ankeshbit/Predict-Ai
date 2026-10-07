@@ -87,9 +87,11 @@ export const OverviewDashboardPage: React.FC<OverviewDashboardProps> = ({
               <span className="text-[10px] font-mono text-slate-500">•</span>
               <span className="text-xs font-mono text-slate-400">{totalMachines} Units Scored</span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data
-            </p>
+            {machines.some((m) => m.isDemo) && (
+              <p className="text-[11px] text-slate-400">
+                Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data
+              </p>
+            )}
           </div>
         </div>
 

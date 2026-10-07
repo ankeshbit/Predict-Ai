@@ -49,7 +49,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         <TopNavbar
-          currentPageTitle={pageTitles[currentPage] || 'Dashboard'}
+          currentPageTitle={pageTitles[currentPage] || '—'}
           currentUser={currentUser}
           openAlertCount={openAlertCount}
           onOpenAlerts={() => onNavigate('alerts')}

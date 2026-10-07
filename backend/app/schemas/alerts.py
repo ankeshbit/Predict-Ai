@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AlertResponse(BaseModel):
@@ -38,5 +38,5 @@ class AlertAcknowledgeRequest(BaseModel):
 
 
 class AlertResolveRequest(BaseModel):
-    resolution_type: Optional[str] = "issue_resolved"
+    resolution_type: str = Field(..., min_length=1, description="Required resolution classification")
     resolution_note: Optional[str] = None

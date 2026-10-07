@@ -19,7 +19,9 @@ export const Badge: React.FC<BadgeProps> = ({
   dot = true,
 }) => {
   const content = children != null ? children : value;
-  if (content == null) return null;
+  if (content == null || content === '—') {
+    return <span className="font-mono text-xs text-slate-500">—</span>;
+  }
   const val = String(content);
 
   const sizeClasses = size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5';

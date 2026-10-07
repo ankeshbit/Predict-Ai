@@ -35,6 +35,8 @@ class MachineResponse(BaseModel):
     current_cycle: Optional[int] = None
     anomaly_score: Optional[float] = None
     anomaly_severity: Optional[float] = None
+    is_anomaly: Optional[bool] = None
+    anomaly_threshold: Optional[float] = None
     reliability_status: Optional[str] = None
     prediction_horizon: Optional[int] = None
     prediction_horizon_unit: Optional[str] = None

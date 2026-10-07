@@ -72,16 +72,20 @@ export function useResolveAlert() {
       resolutionNote,
     }: {
       alertId: string;
-      resolutionType?: string;
+      resolutionType: string;
       resolutionNote?: string;
-    }) =>
-      apiFetch<BackendAlert>(`/alerts/${alertId}/resolve`, {
+    }) => {
+      if (!resolutionType || !resolutionType.trim()) {
+        throw new Error('Resolution type is required.');
+      }
+      return apiFetch<BackendAlert>(`/alerts/${alertId}/resolve`, {
         method: 'POST',
         body: JSON.stringify({
-          resolution_type: resolutionType || 'issue_resolved',
+          resolution_type: resolutionType,
           resolution_note: resolutionNote,
         }),
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
       queryClient.invalidateQueries({ queryKey: ['machines'] });

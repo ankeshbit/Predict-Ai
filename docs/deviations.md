@@ -143,3 +143,21 @@ To enable realistic real-time demonstrations without external hardware or IoT ga
 3. **Automatic Termination & Reset Integration**: Replay halts automatically when any engine reaches its final available cycle in `demo_units.csv`. Calling `POST /api/v1/demo/reset` immediately stops any active replay and restores the fleet to initial baseline conditions.
 4. **Role Enforcement**: Strictly restricted to `admin` users (HTTP 403 Forbidden for `engineer` role).
 
+---
+
+## 10. Machine Health Indicator Bands Database Storage & Seeding
+
+### PRD v3.0 Specification (§5 / FR-10)
+PRD §5 / FR-10 establishes five health bands for the deterministic Machine Health Indicator (0–100):
+- **Excellent**: 86–100
+- **Healthy**: 71–85
+- **Warning**: 51–70
+- **Poor**: 31–50
+- **Critical**: 0–30
+
+### Implemented Workflow Formulation
+Rather than hardcoding band boundaries as static constants across frontend and backend schemas:
+1. **Database Source of Truth**: The five PRD health bands are seeded into the relational database in `settings` (key `health_bands`) during `seed-defaults` execution.
+2. **Dynamic API Delivery**: `GET /api/v1/health-config` reads the active bands directly from the database and returns them in the `bands` field of `HealthConfigResponse`.
+3. **Frontend Dynamic Consumption**: Frontend dashboards and health indicators read band definitions and ranges dynamically from `GET /api/v1/health-config`, preserving frontend visual color mappings while eliminating duplicate hardcoded score thresholds.
+

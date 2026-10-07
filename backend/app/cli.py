@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.db import engine
 from app.core.security import get_password_hash
-from app.models.entities import HealthIndicatorConfig, User
+from app.models.entities import HealthIndicatorConfig, Setting, User
 
 
 def create_user(email: str, password: str, role: str):
@@ -89,6 +89,25 @@ def seed_defaults():
             )
             db.add(cfg)
             print("[+] Seeded HealthIndicatorConfig v1.0")
+
+        # Seed health bands in settings table if not present
+        bands_setting = db.scalar(select(Setting).where(Setting.key == "health_bands"))
+        if not bands_setting:
+            bands_setting = Setting(
+                key="health_bands",
+                value={
+                    "bands": [
+                        {"key": "Excellent", "label": "Excellent (86–100)", "min_score": 86, "max_score": 100},
+                        {"key": "Healthy", "label": "Healthy (71–85)", "min_score": 71, "max_score": 85},
+                        {"key": "Warning", "label": "Warning (51–70)", "min_score": 51, "max_score": 70},
+                        {"key": "Poor", "label": "Poor (31–50)", "min_score": 31, "max_score": 50},
+                        {"key": "Critical", "label": "Critical (0–30)", "min_score": 0, "max_score": 30},
+                    ]
+                },
+                description="Machine Health Indicator bands (PRD §5 / FR-10)",
+            )
+            db.add(bands_setting)
+            print("[+] Seeded Setting: health_bands")
 
         # Check admin
         admin_email = settings.INITIAL_ADMIN_EMAIL.lower()

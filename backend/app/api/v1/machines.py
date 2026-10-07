@@ -18,6 +18,7 @@ from app.models.entities import (
     Anomaly,
     Machine,
     MaintenanceRecord,
+    ModelVersion,
     Prediction,
     SensorReading,
     User,
@@ -69,12 +70,34 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
     reliability_status = "ok" if dq == "DATA_OK" else "reduced"
     # Anomaly severity = penalty_anomaly / 100 (normalised 0-1)
     anomaly_severity = min(1.0, latest_pred.penalty_anomaly / 100.0)
+
+    latest_anom = db.scalar(
+        select(Anomaly)
+        .where(Anomaly.machine_id == machine.id)
+        .order_by(Anomaly.cycle.desc())
+        .limit(1)
+    )
+    anom_threshold = None
+    active_anom_model = db.scalar(
+        select(ModelVersion).where(ModelVersion.task == "anomaly", ModelVersion.is_active.is_(True))
+    )
+    if active_anom_model and active_anom_model.decision_threshold is not None:
+        anom_threshold = active_anom_model.decision_threshold
+    else:
+        active_model = db.scalar(
+            select(ModelVersion).where(ModelVersion.is_active.is_(True))
+        )
+        if active_model and active_model.decision_threshold is not None:
+            anom_threshold = active_model.decision_threshold
+
     return {
         "failure_probability": latest_pred.failure_probability,
         "risk_level": latest_pred.risk_level,
         "current_cycle": resolved_cycle,
         "anomaly_score": latest_pred.penalty_anomaly / 100.0,
         "anomaly_severity": anomaly_severity,
+        "is_anomaly": latest_anom.is_anomaly if latest_anom is not None else None,
+        "anomaly_threshold": anom_threshold,
         "reliability_status": reliability_status,
         "prediction_horizon": latest_pred.horizon,
         "prediction_horizon_unit": latest_pred.horizon_unit,

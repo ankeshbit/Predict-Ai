@@ -32,7 +32,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
   const [severityFilter, setSeverityFilter] = useState<'all' | AlertSeverity>('all');
   const [selectedAlertForDetail, setSelectedAlertForDetail] = useState<Alert | null>(null);
   const [selectedAlertForResolve, setSelectedAlertForResolve] = useState<Alert | null>(null);
-  const [resolutionType, setResolutionType] = useState<'issue_resolved' | 'false_alarm' | 'no_action_needed'>('issue_resolved');
+  const [resolutionType, setResolutionType] = useState<string>('');
   const [resolutionNote, setResolutionNote] = useState('');
 
   const openCount = alerts.filter(a => a.status === 'open').length;
@@ -48,7 +48,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
   const handleResolveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const note = resolutionNote.trim();
-    if (!note) return;
+    if (!resolutionType || !note) return;
     if (selectedAlertForResolve) {
       onResolveAlert(
         selectedAlertForResolve.id,
@@ -56,6 +56,8 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
         note
       );
       setSelectedAlertForResolve(null);
+      setResolutionType('');
+      setResolutionNote('');
       if (selectedAlertForDetail?.id === selectedAlertForResolve.id) {
         setSelectedAlertForDetail(null);
       }
@@ -390,7 +392,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-400">Data Reliability:</span>{' '}
-                    <span className="text-emerald-400">{selectedAlertForDetail.reliabilityStatus.toUpperCase()}</span>
+                    <span className="text-emerald-400">{selectedAlertForDetail.reliabilityStatus ? selectedAlertForDetail.reliabilityStatus.toUpperCase() : '—'}</span>
                   </div>
                 </div>
               </div>
@@ -519,10 +521,11 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
       >
         <form onSubmit={handleResolveSubmit} className="space-y-4 text-xs">
           <Select
-            label="Resolution Classification (PRD §FR-14)"
+            label="Resolution Classification (PRD §FR-14) *"
             value={resolutionType}
-            onChange={(e) => setResolutionType(e.target.value as any)}
+            onChange={(e) => setResolutionType(e.target.value)}
             options={[
+              { label: 'Select resolution classification...', value: '' },
               { label: 'Issue Resolved — Work order verified and complete', value: 'issue_resolved' },
               { label: 'False Alarm — Sensor telemetry within acceptable tolerance', value: 'false_alarm' },
               { label: 'No Action Needed — Operational run scheduled for phase retirement', value: 'no_action_needed' },
@@ -560,7 +563,7 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({
               variant="primary"
               size="sm"
               type="submit"
-              disabled={!resolutionNote.trim()}
+              disabled={!resolutionType || !resolutionNote.trim()}
               className="bg-emerald-600 hover:bg-emerald-500 border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Confirm Resolution

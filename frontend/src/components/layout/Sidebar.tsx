@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Subtle Engine & Domain Footer */}
       <div className="p-3 border-t border-[#1e2636] bg-[#0c1018] text-[10px] font-mono text-slate-500 space-y-0.5">
         <div className="text-slate-400 font-semibold truncate">NASA C-MAPSS FD001</div>
-        <div className="truncate">Turbofan Simulation</div>
+        <div className="truncate">Simulated Engine Benchmark</div>
       </div>
     </aside>
   );

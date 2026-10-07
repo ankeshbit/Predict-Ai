@@ -151,7 +151,10 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                         }`}
                       >
                         <td className="py-3 px-4 whitespace-nowrap font-mono font-semibold text-slate-100 group-hover:text-blue-400 transition-colors">
-                          {m.machineCode}
+                          <div className="flex items-center gap-2">
+                            <span>{m.machineCode}</span>
+                            {m.datasetBadge && <Badge value={m.datasetBadge} variant="demo" size="xs" />}
+                          </div>
                         </td>
 
                         <td className="py-3 px-4">
@@ -176,11 +179,11 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                               <div className="w-28 h-1 bg-[#1a2333] rounded-full mt-1.5 overflow-hidden">
                                 <div
                                   className={`h-full ${
-                                    m.healthIndicator >= 80
+                                    m.healthBand === 'Excellent' || m.healthBand === 'Healthy'
                                       ? 'bg-emerald-500'
-                                      : m.healthIndicator >= 60
+                                      : m.healthBand === 'Warning'
                                       ? 'bg-amber-500'
-                                      : 'bg-red-500'
+                                      : 'bg-rose-500'
                                   }`}
                                   style={{ width: `${Math.max(0, Math.min(100, m.healthIndicator))}%` }}
                                 />

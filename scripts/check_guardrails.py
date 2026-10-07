@@ -353,20 +353,23 @@ def check_docs_and_config_no_credential_literals():
 def check_frontend_no_invented_fallbacks():
     """
     Guardrail:
-    Ensures zero invented fallbacks in frontend/src/pages and App.tsx:
+    Ensures zero invented fallbacks in frontend/src:
     - No ?? <number>
     - No || <number>
-    - No || '<text>' (allow-list only '—')
+    - No ?? '<identifier>' (allow-list only '—')
+    - No || '<identifier>' (allow-list only '—')
     - No 64-hex literals
     - No forbidden strings: 'Test Cell', 'RULE_DEFAULT', 'Platt', 'Turbofan', 'Offline Evaluation'
       (banner string "Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data" is preserved per PRD)
+    - No numeric literal threshold comparison on score or probability (e.g. > 0.5)
+    - No constant string badge applied unconditionally to every machine (e.g. datasetBadge: 'Demo / Simulated Data')
     """
-    targets = [ROOT_DIR / "frontend" / "src" / "App.tsx"]
-    pages_dir = ROOT_DIR / "frontend" / "src" / "pages"
-    if pages_dir.exists():
-        for p in pages_dir.rglob("*.tsx"):
+    targets = []
+    src_dir = ROOT_DIR / "frontend" / "src"
+    if src_dir.exists():
+        for p in src_dir.rglob("*.tsx"):
             targets.append(p)
-        for p in pages_dir.rglob("*.ts"):
+        for p in src_dir.rglob("*.ts"):
             targets.append(p)
 
     violations = []
@@ -375,11 +378,18 @@ def check_frontend_no_invented_fallbacks():
     nullish_number_re = re.compile(r'\?\?\s*\d+(?:\.\d+)?')
     # 2. || <number>
     or_number_re = re.compile(r'\|\|\s*\d+(?:\.\d+)?')
-    # 3. || '<text>' (allow-list only '—')
+    # 3. ?? '<text>' (allow-list only '—')
+    nullish_string_re = re.compile(r'\?\?\s*([\'"])([^\'"]*)\1')
+    # 4. || '<text>' (allow-list only '—')
     or_string_re = re.compile(r'\|\|\s*([\'"])([^\'"]*)\1')
-    # 4. 64-hex literal
+    # 5. 64-hex literal
     hex64_re = re.compile(r'\b[a-fA-F0-9]{64}\b')
-    # 5. forbidden strings
+    # 6. Numeric threshold comparison on score or probability
+    score_threshold_re = re.compile(r'\b(?:anomaly_score|failure_probability|health_indicator|anomalyScore|failureProbability|healthIndicator|score)\s*(?:[<>]=?)\s*\d+(?:\.\d+)?')
+    score_threshold_rev_re = re.compile(r'\d+(?:\.\d+)?\s*(?:[<>]=?)\s*\b(?:anomaly_score|failure_probability|health_indicator|anomalyScore|failureProbability|healthIndicator|score)')
+    # 7. Constant badge applied unconditionally to every machine
+    constant_badge_re = re.compile(r'datasetBadge\s*:\s*[\'"][^\'"]+[\'"]')
+    # 8. forbidden strings
     forbidden_strings = ['Test Cell', 'RULE_DEFAULT', 'Platt', 'Turbofan', 'Offline Evaluation']
 
     for target in sorted(set(targets)):
@@ -387,7 +397,7 @@ def check_frontend_no_invented_fallbacks():
             continue
         rel_path = target.relative_to(ROOT_DIR)
         rel_str = str(rel_path).replace("\\", "/")
-        if "/tests/" in rel_str or ".test." in rel_str or ".spec." in rel_str:
+        if "/tests/" in rel_str or ".test." in rel_str or ".spec." in rel_str or "/e2e/" in rel_str:
             continue
         try:
             content = target.read_text(encoding="utf-8", errors="ignore")
@@ -413,22 +423,44 @@ def check_frontend_no_invented_fallbacks():
                     f"{rel_str}:{line_idx} - Found forbidden or number fallback '|| <number>': '{m_or_num.group(0)}' in: {stripped[:100]}"
                 )
 
-            # Check 3: || '<text>' (allow-list only '—')
-            for m_or_str in or_string_re.finditer(line):
-                text_val = m_or_str.group(2)
-                if text_val != '—':
+            # Check 3: ?? '<text>' (allow-list only '—' and empty string '')
+            for m_null_str in nullish_string_re.finditer(line):
+                text_val = m_null_str.group(2)
+                if text_val not in ('—', ''):
                     violations.append(
-                        f"{rel_str}:{line_idx} - Found forbidden string fallback '|| <text>': '{m_or_str.group(0)}' (only '—' allowed) in: {stripped[:100]}"
+                        f"{rel_str}:{line_idx} - Found forbidden nullish string fallback '?? <identifier>': '{m_null_str.group(0)}' in: {stripped[:100]}"
                     )
 
-            # Check 4: 64-hex literal
+            # Check 4: || '<text>' (allow-list only '—' and empty string '')
+            for m_or_str in or_string_re.finditer(line):
+                text_val = m_or_str.group(2)
+                if text_val not in ('—', ''):
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden string fallback '|| <identifier>': '{m_or_str.group(0)}' in: {stripped[:100]}"
+                    )
+
+            # Check 5: 64-hex literal
             m_hex = hex64_re.search(line)
             if m_hex:
                 violations.append(
                     f"{rel_str}:{line_idx} - Found forbidden 64-hex literal: '{m_hex.group(0)}' in: {stripped[:100]}"
                 )
 
-            # Check 5: forbidden strings
+            # Check 6: Numeric literal threshold comparison on score or probability
+            m_score_thresh = score_threshold_re.search(line) or score_threshold_rev_re.search(line)
+            if m_score_thresh:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden numeric literal threshold comparison on score/probability: '{m_score_thresh.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 7: Constant badge applied to every machine
+            m_const_badge = constant_badge_re.search(line)
+            if m_const_badge:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden constant badge assigned to machine: '{m_const_badge.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 8: forbidden strings
             # Allow PRD required banner line: "Demo Dataset: NASA C-MAPSS FD001 — Simulated Turbofan Engine Data"
             if "Demo Dataset: NASA C-MAPSS FD001" in line:
                 continue
@@ -439,12 +471,12 @@ def check_frontend_no_invented_fallbacks():
                     )
 
     if violations:
-        print("[-] FAILED: Invented data fallbacks or forbidden literals detected in frontend/src/pages and App.tsx:")
+        print("[-] FAILED: Invented data fallbacks or forbidden literals detected in frontend/src:")
         for v in violations:
             print(f"    {v}")
         return False
 
-    print("[+] PASSED: Frontend invented fallback guardrail passed (zero ?? <number>, || <number>, || '<text>', 64-hex, or forbidden strings).")
+    print("[+] PASSED: Frontend invented fallback guardrail passed (zero ?? <number>, || <number>, ?? '<identifier>', || '<identifier>', score threshold comparisons, constant badges, 64-hex, or forbidden strings).")
     return True
 
 

@@ -59,7 +59,7 @@ export interface Machine {
   machineType: string;
   location: string;
   installDate: string;
-  operationalStatus: MachineStatus;
+  operationalStatus: MachineStatus | null;
   healthIndicator: number | null;
   healthBand: HealthBand | null;
   healthComponents: HealthComponents;
@@ -69,10 +69,13 @@ export interface Machine {
   currentCycle: number | null;
   anomalySeverity: number | null;
   anomalyScore: number | null;
-  anomalyStatus: 'normal' | 'warning' | 'anomaly';
-  reliabilityStatus: ReliabilityStatus;
+  anomalyStatus: 'normal' | 'warning' | 'anomaly' | '—' | null;
+  isAnomaly?: boolean | null;
+  anomalyThreshold?: number | null;
+  reliabilityStatus: ReliabilityStatus | null;
   reliabilityWarningReason?: string;
-  datasetBadge: string;
+  isDemo?: boolean;
+  datasetBadge: string | null;
   lastUpdated: string;
   explanation: PredictionExplanation;
   recommendation: {
@@ -119,7 +122,7 @@ export interface Alert {
   asOfCycle: number | null;
   triggeredAt: string;
   message: string;
-  reliabilityStatus: ReliabilityStatus;
+  reliabilityStatus: ReliabilityStatus | null;
   recommendationText: string;
   recommendationRuleId: string;
   acknowledgedBy?: string;
