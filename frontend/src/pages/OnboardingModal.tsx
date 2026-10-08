@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { Play, ArrowRight, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
+import { useMachines } from '../api';
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -14,12 +15,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onClose,
   onStartDemoJourney,
 }) => {
+  const { data: demoMachinesData } = useMachines({ is_demo: true });
+  const demoEngineCount = demoMachinesData?.items?.length != null ? demoMachinesData.items.length : null;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Welcome to the Predictive Maintenance System"
-      description="PRD §7.1 Acceptance Tour — explore pre-scored simulated turbofan engines with real model evaluations."
+      description="PRD Acceptance Tour — explore pre-scored simulated turbofan engines with real model evaluations."
       maxWidth="2xl"
       footer={
         <div className="flex items-center justify-between w-full">
@@ -35,7 +39,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             onClick={onStartDemoJourney}
             icon={<Play className="w-4 h-4 fill-current" />}
           >
-            Explore Critical Unit #3 Workflow
+            Explore Critical Unit Workflow
           </Button>
         </div>
       }
@@ -47,11 +51,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             Seeded First-Run Experience (NASA C-MAPSS FD001)
           </p>
           <p>
-            No CSV upload is required to experience the platform. Eight simulated turbofan engines have been pre-scored using an active LightGBM calibrated classifier and Isolation Forest anomaly detector.
+            No CSV upload is required to experience the platform. {demoEngineCount != null ? demoEngineCount : '—'} simulated turbofan engines have been pre-scored using an active LightGBM calibrated classifier and Isolation Forest anomaly detector.
           </p>
         </div>
 
-        {/* 3 Reference Machines (§7.2 Demo Scenario) */}
+        {/* Reference Machines Demo Scenarios */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
             <h4 className="font-semibold text-slate-100 uppercase tracking-wider text-[11px]">
@@ -66,10 +70,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="p-3 rounded-xl bg-[#090f1d] border border-emerald-900/40 space-y-1.5">
               <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Unit #1: Healthy</span>
+                <span>Demonstrator: Healthy</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Health Indicator 94/100. Low failure probability (6%). Nominal baseline sensors.
+                High health indicator, low failure probability, and nominal baseline sensors.
               </p>
               <div className="text-[10px] text-amber-400/90 font-mono italic">
                 Example only (not live data)
@@ -79,10 +83,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="p-3 rounded-xl bg-[#090f1d] border border-amber-900/40 space-y-1.5">
               <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Unit #2: Warning</span>
+                <span>Demonstrator: Warning</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Health Indicator 64/100. Failure probability 42%. Mild upward drift on sensor_11.
+                Degrading health indicator, warning-level failure probability, and mild upward drift on sensor_11.
               </p>
               <div className="text-[10px] text-amber-400/90 font-mono italic">
                 Example only (not live data)
@@ -92,10 +96,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div className="p-3 rounded-xl bg-[#090f1d] border border-rose-900/60 space-y-1.5 ring-1 ring-rose-500/30">
               <div className="flex items-center gap-1.5 text-rose-400 font-semibold">
                 <AlertCircle className="w-4 h-4" />
-                <span>Unit #3: Critical Alert</span>
+                <span>Demonstrator: Critical Alert</span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Health Indicator 34/100. Failure probability 82%. Open alert with AI recommendation!
+                Critical health indicator, critical-level failure probability, and open alert with AI recommendation.
               </p>
               <div className="text-[10px] text-amber-400/90 font-mono italic">
                 Example only (not live data)

@@ -84,3 +84,13 @@ export function useModelEvaluation(modelId?: string) {
     retry: false,
   });
 }
+
+export function useModelCard(modelId?: string) {
+  return useQuery({
+    queryKey: ['modelCard', modelId],
+    queryFn: () => apiFetch<Record<string, any>>(`/models/${modelId}/card`),
+    enabled: !!modelId,
+    retry: false,
+  });
+}
+

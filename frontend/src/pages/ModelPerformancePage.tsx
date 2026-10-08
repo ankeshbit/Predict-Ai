@@ -3,7 +3,7 @@ import type { ModelEvaluation, ModelVersion } from '../types';
 import { ConfusionMatrixChart } from '../components/charts/ConfusionMatrixChart';
 import { RocPrCurves } from '../components/charts/RocPrCurves';
 import { CalibrationPlot } from '../components/charts/CalibrationPlot';
-import { useActiveModels, useModelEvaluation } from '../api';
+import { useActiveModels, useModelEvaluation, useModelCard } from '../api';
 import { Cpu, CheckCircle2 } from 'lucide-react';
 
 interface ModelPerformancePageProps {
@@ -29,27 +29,32 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         adapterKey: m.adapter_key || '—',
         status: m.is_active ? 'active' : 'registered',
         horizon: m.prediction_horizon != null ? m.prediction_horizon : (m.horizon != null ? m.horizon : null),
-        horizonUnit: m.prediction_horizon_unit ? m.prediction_horizon_unit : (m.horizon_unit ? m.horizon_unit : 'cycles'),
+        horizonUnit: m.prediction_horizon_unit || m.horizon_unit || '—',
         decisionThreshold: m.decision_threshold != null ? m.decision_threshold : null,
         trainingDataset: 'NASA C-MAPSS FD001',
         trainingDate: m.created_at,
         gitCommit: 'HEAD',
         modelCard: {
-          targetDefinition: 'Failure within H cycles',
-          calibrationInfo: m.model_card?.calibration_info ? m.model_card.calibration_info : '—',
+          targetDefinition: m.model_card?.target_definition || m.model_card?.targetDefinition || '—',
+          calibrationInfo: m.model_card?.calibration_info || m.model_card?.calibrationInfo || '—',
           featuresUsed: [],
-          intendedUse: 'Simulated fleet risk screening',
-          limitations: 'Trained exclusively on C-MAPSS FD001 simulation run-to-failure.',
+          intendedUse: Array.isArray(m.model_card?.intended_use)
+            ? m.model_card.intended_use.join(', ')
+            : (m.model_card?.intended_use || m.model_card?.intendedUse || null),
+          limitations: Array.isArray(m.model_card?.known_limitations || m.model_card?.limitations)
+            ? (m.model_card.known_limitations || m.model_card.limitations).join('; ')
+            : (m.model_card?.known_limitations || m.model_card?.limitations || null),
         },
       }));
 
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [selectedSet, setSelectedSet] = useState<EvalSetKey>('internal_test');
 
-  const currentModelId = selectedModelId ? selectedModelId : (activeModels[0]?.id ? activeModels[0].id : '');
+  const currentModelId = selectedModelId || activeModels[0]?.id || '';
   const activeModel = activeModels.find((m) => m.id === currentModelId) || activeModels[0];
 
   const { data: apiEvaluation, isError } = useModelEvaluation(currentModelId);
+  const { data: apiModelCard } = useModelCard(currentModelId);
   const evaluation = propEvaluation || apiEvaluation;
 
   if (isError || !evaluation || !activeModel) {
@@ -155,6 +160,29 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
   };
 
   const featureImportance = (evaluation as any).feature_importance || (evaluation as any).featureImportance || [];
+
+  const rawIntendedUse =
+    apiModelCard?.intended_use ||
+    apiModelCard?.intendedUse ||
+    activeModel?.modelCard?.intendedUse;
+
+  const rawLimitations =
+    apiModelCard?.known_limitations ||
+    apiModelCard?.limitations ||
+    activeModel?.modelCard?.limitations;
+
+  const intendedUseText = Array.isArray(rawIntendedUse)
+    ? rawIntendedUse.join('. ')
+    : (typeof rawIntendedUse === 'string' && rawIntendedUse !== '—' ? rawIntendedUse : null);
+
+  const limitationsText = Array.isArray(rawLimitations)
+    ? rawLimitations.join('. ')
+    : (typeof rawLimitations === 'string' && rawLimitations !== '—' ? rawLimitations : null);
+
+  const hasModelCard = Boolean(
+    (apiModelCard && (intendedUseText || limitationsText)) ||
+    (activeModel?.modelCard && (activeModel.modelCard.intendedUse || activeModel.modelCard.limitations))
+  );
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150 select-none">
@@ -360,6 +388,42 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
           </div>
         </div>
       )}
+
+      {/* Model Card & Operational Boundaries */}
+      <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#1f2838]">
+          <div>
+            <h4 className="font-semibold text-slate-100 font-mono text-xs">Model Card &amp; Operational Boundaries</h4>
+            <p className="text-[11px] text-slate-400">
+              Stored metadata from model_card.json &bull; Intended use and operational constraints.
+            </p>
+          </div>
+          <span className="font-mono text-[11px] text-slate-400">
+            {activeModel?.version}
+          </span>
+        </div>
+
+        {hasModelCard ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+            <div className="p-3 rounded bg-[#0d121b] border border-[#1e2738] space-y-1">
+              <span className="text-[10px] uppercase text-blue-400 font-semibold block">Intended Use</span>
+              <p className="text-slate-300 leading-relaxed">
+                {intendedUseText || '—'}
+              </p>
+            </div>
+            <div className="p-3 rounded bg-[#0d121b] border border-[#1e2738] space-y-1">
+              <span className="text-[10px] uppercase text-amber-400 font-semibold block">Known Limitations</span>
+              <p className="text-slate-300 leading-relaxed">
+                {limitationsText || '—'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 text-center rounded bg-[#0d121b] border border-[#1e2738] text-xs font-mono text-slate-400">
+            Model card not available.
+          </div>
+        )}
+      </div>
 
       {/* Folded Model Registry & Production Governance Section */}
       <div className="p-4 bg-[#111620] border border-[#1f2838] rounded-lg space-y-4">

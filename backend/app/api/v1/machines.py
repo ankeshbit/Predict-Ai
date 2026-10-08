@@ -83,12 +83,6 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
     )
     if active_anom_model and active_anom_model.decision_threshold is not None:
         anom_threshold = active_anom_model.decision_threshold
-    else:
-        active_model = db.scalar(
-            select(ModelVersion).where(ModelVersion.is_active.is_(True))
-        )
-        if active_model and active_model.decision_threshold is not None:
-            anom_threshold = active_model.decision_threshold
 
     return {
         "failure_probability": latest_pred.failure_probability,

@@ -391,6 +391,20 @@ def check_frontend_no_invented_fallbacks():
     constant_badge_re = re.compile(r'datasetBadge\s*:\s*[\'"][^\'"]+[\'"]')
     # 8. forbidden strings
     forbidden_strings = ['Test Cell', 'RULE_DEFAULT', 'Platt', 'Turbofan', 'Offline Evaluation']
+    # 9. Ternary fallback: x ? x : '<literal>' (allow-list only '—' and '')
+    ternary_self_re = re.compile(r'([a-zA-Z0-9_\.\?]+)\s*\?\s*\1\s*:\s*([\'"])([^\'"]*)\2')
+    # 10. Ternary null fallback: x != null ? ... : '<literal>' (allow-list only '—' and '')
+    ternary_null_re = re.compile(r'([a-zA-Z0-9_\.\?]+)\s*!=\s*null\s*\?.*:\s*([\'"])([^\'"]*)\2\s*[,;\)]?$')
+    # 11. Numeric literals in nested ternaries on score/probability fields
+    score_prob_field_pattern = r'(?:[a-zA-Z0-9_]*(?:prob|score|health)[a-zA-Z0-9_]*)'
+    score_prob_ternary_re = re.compile(
+        r'\b' + score_prob_field_pattern + r'\s*(?:[<>]=?|===?|!==?)\s*\d+(?:\.\d+)?\s*\?',
+        re.IGNORECASE,
+    )
+    score_prob_ternary_rev_re = re.compile(
+        r'\d+(?:\.\d+)?\s*(?:[<>]=?|===?|!==?)\s*\b' + score_prob_field_pattern + r'\s*\?',
+        re.IGNORECASE,
+    )
 
     for target in sorted(set(targets)):
         if not target.is_file():
@@ -470,13 +484,36 @@ def check_frontend_no_invented_fallbacks():
                         f"{rel_str}:{line_idx} - Found forbidden string literal '{s}' in: {stripped[:100]}"
                     )
 
+            # Check 9: Ternary fallback 'x ? x : <literal>'
+            for m_ternary in ternary_self_re.finditer(line):
+                text_val = m_ternary.group(3)
+                if text_val not in ('—', ''):
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden ternary fallback 'x ? x : <literal>': '{m_ternary.group(0)}' in: {stripped[:100]}"
+                    )
+
+            # Check 10: Ternary null fallback 'x != null ? ... : <literal>'
+            for m_tern_null in ternary_null_re.finditer(line):
+                text_val = m_tern_null.group(3)
+                if text_val not in ('—', ''):
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden ternary null fallback 'x != null ? ... : <literal>': '{m_tern_null.group(0)}' in: {stripped[:100]}"
+                    )
+
+            # Check 11: Numeric literals in nested ternaries on score/probability fields
+            m_score_tern = score_prob_ternary_re.search(line) or score_prob_ternary_rev_re.search(line)
+            if m_score_tern:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden numeric literal in nested ternary on score/probability field: '{m_score_tern.group(0)}' in: {stripped[:100]}"
+                )
+
     if violations:
         print("[-] FAILED: Invented data fallbacks or forbidden literals detected in frontend/src:")
         for v in violations:
             print(f"    {v}")
         return False
 
-    print("[+] PASSED: Frontend invented fallback guardrail passed (zero ?? <number>, || <number>, ?? '<identifier>', || '<identifier>', score threshold comparisons, constant badges, 64-hex, or forbidden strings).")
+    print("[+] PASSED: Frontend invented fallback guardrail passed (zero ?? <number>, || <number>, ?? '<identifier>', || '<identifier>', ternary fallbacks, score threshold comparisons, constant badges, 64-hex, or forbidden strings).")
     return True
 
 

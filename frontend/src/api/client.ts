@@ -110,11 +110,15 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const errorDetails = data?.error || data?.detail;
-    const code = errorDetails?.code ? errorDetails.code : `HTTP_${response.status}`;
-    const message =
-      typeof errorDetails === 'string'
-        ? errorDetails
-        : (errorDetails?.message ? errorDetails.message : (response.statusText ? response.statusText : 'An unexpected error occurred'));
+    const code = errorDetails?.code || `HTTP_${response.status}`;
+    let message = 'An unexpected error occurred';
+    if (typeof errorDetails === 'string') {
+      message = errorDetails;
+    } else if (errorDetails?.message) {
+      message = errorDetails.message;
+    } else if (response.statusText) {
+      message = response.statusText;
+    }
     throw new ApiError(response.status, code, message, errorDetails?.details);
   }
 

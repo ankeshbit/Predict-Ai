@@ -26,7 +26,7 @@ const DEFAULT_SENSORS: Array<{ id: keyof SensorReading; label: string; unit: str
 ];
 
 export const SensorLineChart: React.FC<SensorLineChartProps> = ({
-  data,
+  data = [],
   availableSensors = DEFAULT_SENSORS,
 }) => {
   const [selectedSensor, setSelectedSensor] = useState<keyof SensorReading>('sensor_11');

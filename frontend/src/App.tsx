@@ -31,12 +31,7 @@ import {
 import { Loader2 } from 'lucide-react';
 
 function mapBackendMachineToMachine(bm: any): Machine {
-  // Risk level fallback: derive from failure_probability if backend doesn't provide it
-  const rawRiskLevel = bm.risk_level ?? null;
   const failureProb: number | null = bm.failure_probability != null ? bm.failure_probability : null;
-  const derivedRiskLevel =
-    rawRiskLevel ??
-    (failureProb != null ? (failureProb >= 0.7 ? 'Critical' : failureProb >= 0.4 ? 'Warning' : 'Low') : null);
 
   return {
     id: bm.id,
@@ -56,11 +51,11 @@ function mapBackendMachineToMachine(bm: any): Machine {
     },
     failureProbability: failureProb,
     predictionHorizon: bm.prediction_horizon ?? null,
-    riskLevel: derivedRiskLevel,
+    riskLevel: bm.risk_level ?? null,
     currentCycle: bm.current_cycle ?? null,
     anomalySeverity: bm.anomaly_severity ?? null,
     anomalyScore: bm.anomaly_score ?? null,
-    anomalyStatus: bm.is_anomaly != null ? (bm.is_anomaly ? 'anomaly' : 'normal') : (bm.anomaly_score != null ? 'normal' : null),
+    anomalyStatus: bm.is_anomaly != null ? (bm.is_anomaly ? 'anomaly' : 'normal') : null,
     isAnomaly: bm.is_anomaly ?? null,
     anomalyThreshold: bm.anomaly_threshold ?? null,
     reliabilityStatus: bm.reliability_status ?? null,
@@ -195,7 +190,7 @@ export function App() {
     version: d.version || '—',
     adapterKey: d.adapter_key || '—',
     adapterVersion: d.adapter_version || '—',
-    dataOrigin: (d.data_origin ? d.data_origin : 'simulated') as any,
+    dataOrigin: (d.data_origin || '—') as any,
     isDemo: Boolean(d.name.toLowerCase().includes('demo') || d.slug?.includes('demo')),
     status: (d.status === 'incompatible' ? 'rejected_incompatible' : d.status) as any,
     checksumSha256: d.schema_mapping_hash || '—',
@@ -206,7 +201,7 @@ export function App() {
   }));
 
   // Resolve selected machine
-  const effectiveSelectedId = selectedMachineId ? selectedMachineId : (machines[0]?.id ? machines[0].id : '');
+  const effectiveSelectedId = selectedMachineId || machines[0]?.id || '';
   const selectedMachine = machines.find((m) => m.id === effectiveSelectedId) || machines[0];
 
   const { data: sensorHistoryData } = useSensorHistory(effectiveSelectedId, { downsample_to: 100 });

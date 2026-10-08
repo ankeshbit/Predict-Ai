@@ -198,9 +198,13 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
                           {m.failureProbability != null ? (
                             <>
                               <span>{(m.failureProbability * 100).toFixed(0)}%</span>
-                              {m.riskLevel && (
+                              {m.riskLevel ? (
                                 <span className="text-[10px] text-slate-400 font-normal ml-1 font-mono">
                                   ({m.riskLevel})
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-500 font-normal ml-1 font-mono">
+                                  (—)
                                 </span>
                               )}
                             </>
@@ -211,9 +215,15 @@ export const FleetPage: React.FC<FleetPageProps> = ({ machines, onSelectMachine 
 
                         <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">
                           {m.anomalyScore != null ? m.anomalyScore.toFixed(3) : '—'}
-                          <span className={`ml-1 text-[10px] ${m.anomalyStatus === 'anomaly' ? 'text-red-400' : 'text-slate-400'}`}>
-                            &bull; {m.anomalyStatus}
-                          </span>
+                          {m.anomalyStatus ? (
+                            <span className={`ml-1 text-[10px] ${m.anomalyStatus === 'anomaly' ? 'text-red-400' : 'text-slate-400'}`}>
+                              &bull; {m.anomalyStatus}
+                            </span>
+                          ) : (
+                            <span className="ml-1 text-[10px] text-slate-500 font-mono">
+                              &bull; —
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-3 px-4 whitespace-nowrap font-mono text-slate-300">

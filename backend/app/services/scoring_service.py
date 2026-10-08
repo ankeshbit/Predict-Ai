@@ -41,6 +41,21 @@ from app.services.alert_service import evaluate_trajectory_alerts
 logger = logging.getLogger(__name__)
 
 
+def determine_health_band(score: float, bands: Optional[List[Dict[str, Any]]] = None) -> str:
+    """Assigns health band based on configured bands from Setting (ordered by min_score desc)."""
+    if bands:
+        for b in sorted(bands, key=lambda x: float(x.get("min_score", 0)), reverse=True):
+            if score >= float(b.get("min_score", 0)):
+                return b.get("key", "Healthy")
+        return bands[-1].get("key", "Critical")
+    return (
+        "Excellent" if score >= 86.0
+        else ("Healthy" if score >= 71.0
+        else ("Warning" if score >= 51.0
+        else ("Poor" if score >= 31.0 else "Critical")))
+    )
+
+
 def score_machine_trajectory(
     machine_id: uuid.UUID,
     db: Session,
@@ -144,6 +159,10 @@ def score_machine_trajectory(
     medium_max = float(risk_setting.value.get("medium_max", 0.50)) if risk_setting and risk_setting.value else 0.50
     high_max = float(risk_setting.value.get("high_max", 0.80)) if risk_setting and risk_setting.value else 0.80
 
+    # Query health bands setting (PRD §FR-10 configured bands)
+    bands_setting = db.scalar(select(Setting).where(Setting.key == "health_bands"))
+    configured_bands = bands_setting.value.get("bands", []) if bands_setting and bands_setting.value else []
+
     new_predictions: List[Prediction] = []
     new_anomalies: List[Anomaly] = []
 
@@ -167,12 +186,7 @@ def score_machine_trajectory(
             else ("High" if p_fail >= medium_max
             else ("Medium" if p_fail >= low_max else "Low"))
         )
-        health_band = (
-            "Excellent" if hi_val >= 86.0
-            else ("Healthy" if hi_val >= 71.0
-            else ("Warning" if hi_val >= 51.0
-            else ("Poor" if hi_val >= 31.0 else "Critical")))
-        )
+        health_band = determine_health_band(hi_val, configured_bands)
 
         pred_id = uuid.uuid4()
         pred = Prediction(
@@ -227,12 +241,7 @@ def score_machine_trajectory(
     latest_row = scored_df.iloc[-1]
     latest_hi = float(latest_row["machine_health_indicator"])
     latest_fail = float(latest_row["failure_probability"])
-    latest_band = (
-        "Excellent" if latest_hi >= 86.0
-        else ("Healthy" if latest_hi >= 71.0
-        else ("Warning" if latest_hi >= 51.0
-        else ("Poor" if latest_hi >= 31.0 else "Critical")))
-    )
+    latest_band = determine_health_band(latest_hi, configured_bands)
 
     machine.health_indicator = latest_hi
     machine.health_band = latest_band

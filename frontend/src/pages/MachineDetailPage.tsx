@@ -166,7 +166,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
                       <span className="text-3xl font-mono font-bold text-white tabular-nums">
                         {(machine.failureProbability * 100).toFixed(0)}%
                       </span>
-                      {machine.riskLevel && <Badge value={machine.riskLevel} size="sm" />}
+                      <Badge value={machine.riskLevel} size="sm" />
                     </>
                   ) : (
                     <span className="text-2xl font-mono font-bold text-slate-400">
