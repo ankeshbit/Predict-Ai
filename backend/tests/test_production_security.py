@@ -56,6 +56,24 @@ def test_production_refuses_default_or_localhost_database_url(monkeypatch):
         check_production_security()
 
 
+def test_production_refuses_unset_database_url_using_default(monkeypatch):
+    """When ENVIRONMENT=production and DATABASE_URL is unset, default localhost URL in config.py must abort."""
+    from app.core import config
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    prod_settings = Settings(
+        ENVIRONMENT="production",
+        SECRET_KEY="a_very_secure_production_secret_key_at_least_32_chars!",
+        # DATABASE_URL is explicitly omitted / unset in env -> defaults to localhost in config.py
+    )
+    assert prod_settings.DATABASE_URL == "postgresql+psycopg://postgres:postgrespassword@localhost:5432/predict_ai"
+    monkeypatch.setattr(config, "settings", prod_settings)
+    monkeypatch.setattr("app.main.settings", prod_settings)
+
+    with pytest.raises(RuntimeError, match="Default or localhost DATABASE_URL detected"):
+        check_production_security()
+
+
 def test_production_accepts_valid_config(monkeypatch):
     from app.core import config
 

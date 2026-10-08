@@ -148,7 +148,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
         <HealthGauge
           score={machine.healthIndicator ?? null}
           band={machine.healthBand}
-          components={machine.healthComponents || { failureRiskPenalty: 0, anomalyPenalty: 0, trendPenalty: 0, otherPenalty: 0 }}
+          components={machine.healthComponents}
           currentCycle={machine.currentCycle != null ? machine.currentCycle : undefined}
         />
 

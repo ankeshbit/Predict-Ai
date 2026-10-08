@@ -513,13 +513,12 @@ def check_frontend_no_invented_fallbacks():
                     f"{rel_str}:{line_idx} - Found forbidden numeric literal in nested ternary on score/probability field: '{m_score_tern.group(0)}' in: {stripped[:100]}"
                 )
 
-            # Check 12: Penalty fields set to numeric 0 in App.tsx mappers
-            if "App.tsx" in rel_str:
-                m_zero_pen = zero_penalty_re.search(line)
-                if m_zero_pen:
-                    violations.append(
-                        f"{rel_str}:{line_idx} - Found forbidden penalty/score field set to numeric 0: '{m_zero_pen.group(0)}' in: {stripped[:100]}"
-                    )
+            # Check 12: Penalty fields set to numeric 0 across frontend/src (e.g. mappers or || fallback object literals)
+            m_zero_pen = zero_penalty_re.search(line)
+            if m_zero_pen:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden penalty/score field set to numeric 0: '{m_zero_pen.group(0)}' in: {stripped[:100]}"
+                )
 
             # Check 13: Hardcoded rule IDs like 'RULE_*'
             m_rule_id = rule_id_re.search(line)

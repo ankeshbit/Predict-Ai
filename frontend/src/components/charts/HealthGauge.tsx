@@ -5,7 +5,7 @@ import { Badge } from '../ui/Badge';
 interface HealthGaugeProps {
   score: number | null; // 0 - 100 or null if unscored
   band?: HealthBand | null;
-  components: HealthComponents;
+  components?: HealthComponents | null;
   currentCycle?: number;
   className?: string;
 }
@@ -108,21 +108,21 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({
         <div className="p-2 rounded bg-[#0f141d] border border-[#1a2230]">
           <div className="text-[10px] font-mono text-slate-400 truncate">Risk Penalty (50w)</div>
           <div className="text-sm font-mono font-bold text-rose-400 mt-0.5 tabular-nums">
-            {components.failureRiskPenalty != null ? `-${components.failureRiskPenalty} pts` : '—'}
+            {components?.failureRiskPenalty != null ? `-${components.failureRiskPenalty} pts` : '—'}
           </div>
         </div>
 
         <div className="p-2 rounded bg-[#0f141d] border border-[#1a2230]">
           <div className="text-[10px] font-mono text-slate-400 truncate">Anomaly Penalty (30w)</div>
           <div className="text-sm font-mono font-bold text-amber-400 mt-0.5 tabular-nums">
-            {components.anomalyPenalty != null ? `-${components.anomalyPenalty} pts` : '—'}
+            {components?.anomalyPenalty != null ? `-${components.anomalyPenalty} pts` : '—'}
           </div>
         </div>
 
         <div className="p-2 rounded bg-[#0f141d] border border-[#1a2230]">
           <div className="text-[10px] font-mono text-slate-400 truncate">Trend Penalty (20w)</div>
           <div className="text-sm font-mono font-bold text-orange-400 mt-0.5 tabular-nums">
-            {components.trendPenalty != null ? `-${components.trendPenalty} pts` : '—'}
+            {components?.trendPenalty != null ? `-${components.trendPenalty} pts` : '—'}
           </div>
         </div>
       </div>

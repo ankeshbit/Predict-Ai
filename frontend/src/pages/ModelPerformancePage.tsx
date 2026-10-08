@@ -22,7 +22,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
     ? propActiveModels
     : (apiActiveModels || []).map((m: any) => ({
         id: m.id,
-        name: m.model_name || m.bundle_version,
+        name: m.model_name || m.bundle_version || '—',
         version: m.bundle_version,
         task: m.task,
         modelType: m.model_type,
@@ -244,7 +244,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Calibration Method</span>
-          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">{(evaluation as any).calibration_method ?? '—'}</span>
+          <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">{(evaluation as any).calibration_method || '—'}</span>
           <span className="text-[11px] text-slate-400 font-mono">
             Decision Threshold: {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
           </span>
@@ -341,7 +341,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
           Secondary Benchmark: <strong className="text-slate-200">Accuracy = {metrics.accuracy}</strong> (imbalance-sensitive; non-primary)
         </span>
         <span className="text-slate-500 text-[11px]">
-          Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method ?? '—'}
+          Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method || '—'}
         </span>
       </div>
 
@@ -467,8 +467,10 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
                   <td className="py-2.5 text-slate-300">{m.modelType}</td>
                   <td className="py-2.5 text-slate-400 truncate max-w-xs">{m.version}</td>
                   <td className="py-2.5 text-blue-400">
-                    {m.task === 'failure_risk' && (m as any).horizon != null
-                      ? `H = ${(m as any).horizon}${((m as any).horizon_unit || (m as any).horizonUnit) ? ` ${(m as any).horizon_unit || (m as any).horizonUnit}` : ''}`
+                    {m.task === 'failure_risk'
+                      ? ((m as any).horizon != null
+                          ? `H = ${(m as any).horizon}${((m as any).horizon_unit || (m as any).horizonUnit) ? ` ${(m as any).horizon_unit || (m as any).horizonUnit}` : ''}`
+                          : '—')
                       : 'N/A'}
                   </td>
                   <td className="py-2.5 text-slate-300">
