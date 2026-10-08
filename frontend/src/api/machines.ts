@@ -38,6 +38,12 @@ export interface BackendMachine {
   preprocessing_version?: string | null;
   failure_model_version_id?: string | null;
   anomaly_model_version_id?: string | null;
+  penalty_risk?: number | null;
+  penalty_anomaly?: number | null;
+  penalty_dq?: number | null;
+  penalty_trend?: number | null;
+  rule_id?: string | null;
+  recommendation_text?: string | null;
 }
 
 export interface MachineListResponse {

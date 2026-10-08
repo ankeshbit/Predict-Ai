@@ -5,7 +5,13 @@ Unit and integration tests for machine fleet listing, filtering, detail, and tel
 import uuid
 from datetime import datetime, timezone
 
-from app.models.entities import Machine, ModelVersion, Prediction, SensorReading
+from app.models.entities import (
+    HealthIndicatorConfig,
+    Machine,
+    ModelVersion,
+    Prediction,
+    SensorReading,
+)
 
 
 def test_list_machines_and_filtering(client, engineer_headers, db):
@@ -137,6 +143,7 @@ def test_sensor_telemetry_history_downsampling(client, engineer_headers, db):
 
 def test_anomaly_threshold_isolated_from_failure_model(client, engineer_headers, db):
     """Verifies that failure model decision_threshold is NEVER returned as anomaly_threshold (Item 4)."""
+    cfg = db.query(HealthIndicatorConfig).first()
     machine_id = uuid.uuid4()
     machine = Machine(
         id=machine_id,
@@ -154,6 +161,7 @@ def test_anomaly_threshold_isolated_from_failure_model(client, engineer_headers,
         adapter_key="cmapss",
         feature_config_version="v1",
         preprocessing_version="v1",
+        input_features=["sensor_11"],
         artifact_path="/tmp/fake",
         sha256_hash="f" * 64,
         python_version="3.12",
@@ -174,6 +182,7 @@ def test_anomaly_threshold_isolated_from_failure_model(client, engineer_headers,
         feature_config_version="v1",
         preprocessing_version="v1",
         failure_model_version_id=fail_model.id,
+        health_config_id=cfg.id,
         horizon=30,
         horizon_unit="cycles",
         failure_probability=0.25,
@@ -207,6 +216,7 @@ def test_anomaly_threshold_isolated_from_failure_model(client, engineer_headers,
         adapter_key="cmapss",
         feature_config_version="v1",
         preprocessing_version="v1",
+        input_features=["sensor_11"],
         artifact_path="/tmp/fake2",
         sha256_hash="a" * 64,
         python_version="3.12",

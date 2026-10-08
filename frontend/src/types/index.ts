@@ -17,10 +17,10 @@ export interface User {
 }
 
 export interface HealthComponents {
-  failureRiskPenalty: number; // e.g. 50 * s_risk
-  anomalyPenalty: number;     // e.g. 30 * s_anom
-  trendPenalty: number;       // e.g. 20 * s_trend
-  otherPenalty: number;
+  failureRiskPenalty: number | null; // e.g. 50 * s_risk
+  anomalyPenalty: number | null;     // e.g. 30 * s_anom
+  trendPenalty: number | null;       // e.g. 20 * s_trend
+  otherPenalty: number | null;
 }
 
 export interface PredictionLineage {

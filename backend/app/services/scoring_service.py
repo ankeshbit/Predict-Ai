@@ -41,19 +41,17 @@ from app.services.alert_service import evaluate_trajectory_alerts
 logger = logging.getLogger(__name__)
 
 
-def determine_health_band(score: float, bands: Optional[List[Dict[str, Any]]] = None) -> str:
-    """Assigns health band based on configured bands from Setting (ordered by min_score desc)."""
-    if bands:
-        for b in sorted(bands, key=lambda x: float(x.get("min_score", 0)), reverse=True):
-            if score >= float(b.get("min_score", 0)):
-                return b.get("key", "Healthy")
-        return bands[-1].get("key", "Critical")
-    return (
-        "Excellent" if score >= 86.0
-        else ("Healthy" if score >= 71.0
-        else ("Warning" if score >= 51.0
-        else ("Poor" if score >= 31.0 else "Critical")))
-    )
+def determine_health_band(score: float, bands: Optional[List[Dict[str, Any]]] = None) -> Optional[str]:
+    """Assigns health band based on configured bands from Setting (ordered by min_score desc).
+    Returns None if no bands are configured (strict zero-fabricated fallbacks).
+    """
+    if not bands:
+        return None
+    sorted_bands = sorted(bands, key=lambda x: float(x.get("min_score", 0)), reverse=True)
+    for b in sorted_bands:
+        if score >= float(b.get("min_score", 0)):
+            return b.get("key")
+    return sorted_bands[-1].get("key")
 
 
 def score_machine_trajectory(
@@ -186,7 +184,7 @@ def score_machine_trajectory(
             else ("High" if p_fail >= medium_max
             else ("Medium" if p_fail >= low_max else "Low"))
         )
-        health_band = determine_health_band(hi_val, configured_bands)
+        health_band = determine_health_band(hi_val, configured_bands) or "—"
 
         pred_id = uuid.uuid4()
         pred = Prediction(
@@ -241,7 +239,7 @@ def score_machine_trajectory(
     latest_row = scored_df.iloc[-1]
     latest_hi = float(latest_row["machine_health_indicator"])
     latest_fail = float(latest_row["failure_probability"])
-    latest_band = determine_health_band(latest_hi, configured_bands)
+    latest_band = determine_health_band(latest_hi, configured_bands) or "—"
 
     machine.health_indicator = latest_hi
     machine.health_band = latest_band

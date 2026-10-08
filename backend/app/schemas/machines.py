@@ -45,6 +45,12 @@ class MachineResponse(BaseModel):
     preprocessing_version: Optional[str] = None
     failure_model_version_id: Optional[str] = None
     anomaly_model_version_id: Optional[str] = None
+    penalty_risk: Optional[float] = None
+    penalty_anomaly: Optional[float] = None
+    penalty_dq: Optional[float] = None
+    penalty_trend: Optional[float] = None
+    rule_id: Optional[str] = None
+    recommendation_text: Optional[str] = None
 
 
 class MachineCreateRequest(BaseModel):

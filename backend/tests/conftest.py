@@ -44,7 +44,7 @@ from app.core.config import settings
 from app.core.db import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.main import app
-from app.models.entities import HealthIndicatorConfig, User
+from app.models.entities import HealthIndicatorConfig, Setting, User
 
 settings.DATABASE_URL = TEST_DATABASE_URL
 settings.DATABASE_URL_DIRECT = TEST_DATABASE_URL
@@ -131,9 +131,29 @@ def db(apply_migrations):
         is_active=True,
     )
 
+    bands_setting = Setting(
+        key="health_bands",
+        value={
+            "bands": [
+                {"key": "Excellent", "label": "Excellent (86–100)", "min_score": 86, "max_score": 100},
+                {"key": "Healthy", "label": "Healthy (71–85)", "min_score": 71, "max_score": 85},
+                {"key": "Warning", "label": "Warning (51–70)", "min_score": 51, "max_score": 70},
+                {"key": "Poor", "label": "Poor (31–50)", "min_score": 31, "max_score": 50},
+                {"key": "Critical", "label": "Critical (0–30)", "min_score": 0, "max_score": 30},
+            ]
+        },
+        description="Machine Health Indicator bands (PRD §5 / FR-10)",
+    )
+    risk_setting = Setting(
+        key="risk_bands",
+        value={"low_max": 0.10, "medium_max": 0.50, "high_max": 0.80},
+    )
+
     session.add(admin)
     session.add(engineer)
     session.add(health_cfg)
+    session.add(bands_setting)
+    session.add(risk_setting)
     session.commit()
 
     yield session

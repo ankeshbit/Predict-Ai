@@ -26,7 +26,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           onLogin({
             id: data.user.id,
             email: data.user.email,
-            fullName: data.user.role === 'admin' ? 'System Administrator' : 'Reliability Engineer',
+            fullName: data.user.email,
             role: data.user.role,
           });
         },

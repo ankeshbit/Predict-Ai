@@ -81,7 +81,12 @@ export const DatasetsPage: React.FC<DatasetsPageProps> = ({
                   return (
                     <tr key={ds.id} className="hover:bg-[#161d29] transition-colors">
                       <td className="py-2.5 px-3">
-                        <div className="font-semibold text-slate-100">{ds.name}</div>
+                        <div className="font-semibold text-slate-100 flex items-center gap-1.5">
+                          <span>{ds.name}</span>
+                          {ds.isDemo && (
+                            <Badge variant="demo" size="xs">Demo</Badge>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-400 font-mono">{ds.version}</div>
                       </td>
                       <td className="py-2.5 px-3 font-mono text-slate-300">{ds.adapterKey}</td>

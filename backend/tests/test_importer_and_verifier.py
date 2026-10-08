@@ -96,7 +96,7 @@ def test_seed_demo_engines_creates_all_three_categories(mock_valid_bundle, db):
     healthy_machine = db.query(Machine).filter(Machine.machine_code == "ENGINE-001").first()
     assert healthy_machine is not None
     assert healthy_machine.is_demo is True
-    assert healthy_machine.health_band == "Healthy"
+    assert healthy_machine.health_band in ("Healthy", "Excellent")
     assert len(healthy_machine.readings) == 2
     assert len(healthy_machine.predictions) == 1
 

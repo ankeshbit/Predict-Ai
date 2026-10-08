@@ -21,6 +21,8 @@ class DatasetResponse(BaseModel):
     unit_count: Optional[int] = None
     schema_mapping: Optional[Dict[str, str]] = None
     schema_mapping_hash: Optional[str] = None
+    data_origin: Optional[str] = None
+    is_demo: bool = False
     status: str
     error_message: Optional[str] = None
     created_at: datetime

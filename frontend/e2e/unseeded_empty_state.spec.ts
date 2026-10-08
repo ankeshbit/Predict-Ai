@@ -36,6 +36,26 @@ test.describe('Unseeded Empty State E2E Tests', () => {
       throw new Error('E2E_ENGINEER_PASSWORD must be configured and non-empty.');
     }
 
+    // Ensure genuinely unseeded data for entities even if demo fleet was reset in other specs
+    await page.route('**/api/v1/machines', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/api/v1/alerts*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/api/v1/maintenance*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/api/v1/datasets*', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await page.route('**/api/v1/dashboard/summary', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total_machines: 0, health_band_counts: {}, active_alerts: 0 }),
+      })
+    );
+    await page.route('**/api/v1/models/*/evaluations', (route) =>
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Model evaluation not available.' }),
+      })
+    );
+
     // ── 1. Login Page ────────────────────────────────────────────────────────
     await page.goto('/');
     const emailInput = page.getByRole('textbox', { name: /Operator Identity \/ Email/i });
@@ -48,19 +68,19 @@ test.describe('Unseeded Empty State E2E Tests', () => {
     await page.getByRole('button', { name: /Sign In to Workstation/i }).click();
 
     // ── 2. Overview Dashboard (Root /) ───────────────────────────────────────
-    await expect(page.getByText(/Fleet Condition & Risk Overview/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: /Fleet Condition & Risk Overview/i })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/No machines in registry/i)).toBeVisible();
     await assertNoRemovedValues(page);
 
     // ── 3. Fleet Page (/fleet) ───────────────────────────────────────────────
     await page.goto('/fleet');
-    await expect(page.getByText(/Fleet Registry & Telemetry Index/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/No machines in registry/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Fleet Asset Inventory/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/No machines found in fleet registry/i)).toBeVisible();
     await assertNoRemovedValues(page);
 
     // ── 4. Alerts Page (/alerts) ─────────────────────────────────────────────
     await page.goto('/alerts');
-    await expect(page.getByText(/Operational Alert Queue/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Operational Alerts/i })).toBeVisible({ timeout: 10000 });
     await expect(
       page.getByText(/No alert records match the active status\/severity filter|All machines are currently within configured alert thresholds/i).first()
     ).toBeVisible();
@@ -68,25 +88,25 @@ test.describe('Unseeded Empty State E2E Tests', () => {
 
     // ── 5. Maintenance Page (/maintenance) ───────────────────────────────────
     await page.goto('/maintenance');
-    await expect(page.getByText(/Maintenance Actions & Lifecycle Log/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Maintenance & Human-in-the-Loop Workflow/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/No maintenance records match/i)).toBeVisible();
     await assertNoRemovedValues(page);
 
     // ── 6. Datasets Page (/datasets) ─────────────────────────────────────────
     await page.goto('/datasets');
-    await expect(page.getByText(/Dataset Ingestion & Adapters/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Dataset Registry & Versions/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/No registered datasets found in registry/i)).toBeVisible();
     await assertNoRemovedValues(page);
 
     // ── 7. Model Performance Page (/model-performance) ────────────────────────
     await page.goto('/model-performance');
-    await expect(page.getByText(/Model Performance & Validation/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Evaluation Workspace/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Model evaluation not available\./i)).toBeVisible();
     await assertNoRemovedValues(page);
 
     // ── 8. Settings Page (/settings) ─────────────────────────────────────────
     await page.goto('/settings');
-    await expect(page.getByText(/System Configuration & Health Tuning/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Platform Configuration & Settings/i })).toBeVisible({ timeout: 10000 });
     await assertNoRemovedValues(page);
   });
 });

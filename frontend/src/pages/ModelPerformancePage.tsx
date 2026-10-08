@@ -33,7 +33,7 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         decisionThreshold: m.decision_threshold != null ? m.decision_threshold : null,
         trainingDataset: 'NASA C-MAPSS FD001',
         trainingDate: m.created_at,
-        gitCommit: 'HEAD',
+        gitCommit: m.git_commit || m.model_card?.git_commit || '—',
         modelCard: {
           targetDefinition: m.model_card?.target_definition || m.model_card?.targetDefinition || '—',
           calibrationInfo: m.model_card?.calibration_info || m.model_card?.calibrationInfo || '—',
@@ -222,7 +222,8 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Model Identity</span>
           <span className="font-mono font-semibold text-slate-200 mt-0.5 block truncate">{activeModel?.version}</span>
-          <span className="text-[11px] text-slate-400 font-mono">{activeModel?.modelType}</span>
+          <span className="text-[11px] text-slate-400 font-mono block">{activeModel?.modelType}</span>
+          <span className="text-[10px] text-slate-500 font-mono block">Commit: {activeModel?.gitCommit}</span>
         </div>
         <div>
           <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block">Dataset &amp; Task</span>

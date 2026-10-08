@@ -15,6 +15,7 @@ export interface BackendDataset {
   adapter_key?: string | null;
   adapter_version?: string | null;
   data_origin?: string | null;
+  is_demo?: boolean;
   uploaded_by?: string | null;
   status: string;
   error_message?: string | null;

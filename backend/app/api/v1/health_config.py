@@ -10,7 +10,11 @@ from app.core.auth import get_current_admin, get_current_engineer
 from app.core.db import get_db
 from app.core.errors import NotFoundError
 from app.models.entities import HealthIndicatorConfig, Setting, User
-from app.schemas.health_config import HealthBandInfo, HealthConfigResponse, HealthConfigUpdateRequest
+from app.schemas.health_config import (
+    HealthBandInfo,
+    HealthConfigResponse,
+    HealthConfigUpdateRequest,
+)
 
 router = APIRouter(prefix="/health-config", tags=["Health Indicator Configuration"])
 
@@ -34,7 +38,7 @@ def get_active_health_config(
     )
     if not cfg:
         raise NotFoundError(message="Active health indicator configuration not found.")
-    
+
     bands = _load_health_bands_from_db(db)
     res = HealthConfigResponse.model_validate(cfg)
     return res.model_copy(update={"bands": bands})

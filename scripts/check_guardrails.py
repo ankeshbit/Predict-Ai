@@ -405,6 +405,12 @@ def check_frontend_no_invented_fallbacks():
         r'\d+(?:\.\d+)?\s*(?:[<>]=?|===?|!==?)\s*\b' + score_prob_field_pattern + r'\s*\?',
         re.IGNORECASE,
     )
+    # 12. Penalty fields set to numeric 0 in App.tsx mappers
+    zero_penalty_re = re.compile(r'\b(?:failureRiskPenalty|anomalyPenalty|trendPenalty|otherPenalty)\s*:\s*0\b')
+    # 13. Hardcoded rule IDs like 'RULE_*'
+    rule_id_re = re.compile(r"['\"]RULE_[A-Za-z0-9_]+['\"]")
+    # 14. Hardcoded git commit 'HEAD'
+    head_commit_re = re.compile(r"['\"]HEAD['\"]")
 
     for target in sorted(set(targets)):
         if not target.is_file():
@@ -505,6 +511,28 @@ def check_frontend_no_invented_fallbacks():
             if m_score_tern:
                 violations.append(
                     f"{rel_str}:{line_idx} - Found forbidden numeric literal in nested ternary on score/probability field: '{m_score_tern.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 12: Penalty fields set to numeric 0 in App.tsx mappers
+            if "App.tsx" in rel_str:
+                m_zero_pen = zero_penalty_re.search(line)
+                if m_zero_pen:
+                    violations.append(
+                        f"{rel_str}:{line_idx} - Found forbidden penalty/score field set to numeric 0: '{m_zero_pen.group(0)}' in: {stripped[:100]}"
+                    )
+
+            # Check 13: Hardcoded rule IDs like 'RULE_*'
+            m_rule_id = rule_id_re.search(line)
+            if m_rule_id:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden hardcoded rule ID '{m_rule_id.group(0)}' in: {stripped[:100]}"
+                )
+
+            # Check 14: Hardcoded git commit 'HEAD'
+            m_head = head_commit_re.search(line)
+            if m_head:
+                violations.append(
+                    f"{rel_str}:{line_idx} - Found forbidden hardcoded git commit 'HEAD' in: {stripped[:100]}"
                 )
 
     if violations:

@@ -37,7 +37,7 @@ export async function fetchCurrentUser(): Promise<User | null> {
     return {
       id: data.id,
       email: data.email,
-      fullName: data.role === 'admin' ? 'Administrator' : 'Reliability Engineer',
+      fullName: data.email,
       role: data.role,
     };
   } catch {
@@ -64,7 +64,7 @@ export function useLogin() {
       queryClient.setQueryData(['currentUser'], {
         id: data.user.id,
         email: data.user.email,
-        fullName: data.user.role === 'admin' ? 'Administrator' : 'Reliability Engineer',
+        fullName: data.user.email,
         role: data.user.role,
       });
       queryClient.invalidateQueries();

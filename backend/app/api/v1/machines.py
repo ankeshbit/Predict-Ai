@@ -84,6 +84,13 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
     if active_anom_model and active_anom_model.decision_threshold is not None:
         anom_threshold = active_anom_model.decision_threshold
 
+    latest_alert = db.scalar(
+        select(Alert)
+        .where(Alert.machine_id == machine.id)
+        .order_by(Alert.created_at.desc())
+        .limit(1)
+    )
+
     return {
         "failure_probability": latest_pred.failure_probability,
         "risk_level": latest_pred.risk_level,
@@ -100,6 +107,12 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
         "preprocessing_version": latest_pred.preprocessing_version,
         "failure_model_version_id": str(latest_pred.failure_model_version_id),
         "anomaly_model_version_id": str(latest_pred.anomaly_model_version_id) if latest_pred.anomaly_model_version_id else None,
+        "penalty_risk": latest_pred.penalty_risk,
+        "penalty_anomaly": latest_pred.penalty_anomaly,
+        "penalty_dq": latest_pred.penalty_dq,
+        "penalty_trend": latest_pred.penalty_trend,
+        "rule_id": latest_alert.recommendation_rule_id if latest_alert else None,
+        "recommendation_text": latest_alert.recommendation_text if latest_alert else None,
     }
 
 

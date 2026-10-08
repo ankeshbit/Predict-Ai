@@ -36,8 +36,10 @@ from app.models.entities import (
     ModelVersion,
     Prediction,
     SensorReading,
+    Setting,
 )
 from app.services.alert_service import evaluate_trajectory_alerts
+from app.services.scoring_service import determine_health_band
 
 logger = logging.getLogger(__name__)
 
@@ -601,6 +603,10 @@ def seed_demo_engines(
             rule_high_fail.consecutive_cycles = 3
             db.flush()
 
+        # Fetch configured health bands from settings
+        setting_bands = db.scalar(select(Setting).where(Setting.key == "health_bands"))
+        configured_bands = setting_bands.value.get("bands") if setting_bands and setting_bands.value else None
+
         results = {}
         for category, info in categories.items():
             u_id = info["unit_id"]
@@ -637,7 +643,7 @@ def seed_demo_engines(
             # Operational status is strictly 'active'
             op_status = "active"
             latest_hi = float(score_data[health_col])
-            health_band = "Healthy" if cluster == "healthy" else ("Warning" if cluster == "warning" else "Critical")
+            health_band = determine_health_band(latest_hi, configured_bands) or "—"
 
             clean_name = f"Turbofan Engine {u_id:03d} ({cluster.capitalize()} Demo)"
 

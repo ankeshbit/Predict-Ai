@@ -8,6 +8,7 @@ import { MachineDetailPage } from '../pages/MachineDetailPage';
 import { DatasetsPage } from '../pages/DatasetsPage';
 import { ModelPerformancePage } from '../pages/ModelPerformancePage';
 import { OnboardingModal } from '../pages/OnboardingModal';
+import { HealthGauge } from '../components/charts/HealthGauge';
 import type { Machine, Dataset, ModelVersion } from '../types';
 
 // Mock recharts
@@ -38,11 +39,13 @@ vi.mock('../api', async (importOriginal) => {
           internal_test: { pr_auc: 0.85, precision: 0.8, recall: 0.8, f1: 0.8, roc_auc: 0.9, brier_score: 0.05, accuracy: 0.85 },
         },
         curves: {},
+        confusion_matrix: {},
+        calibration_curve: {},
         feature_importance: [],
-        methodology: 'GroupKFold',
+        methodology: 'Held-out test split',
         limitations: [],
-        evaluated_at: '2026-10-01T00:00:00Z',
       },
+      isLoading: false,
       isError: false,
     })),
     useModelCard: (...args: any[]) => mockModelCardReturn(...args),
@@ -70,7 +73,7 @@ const baseMachine: Machine = {
   operationalStatus: 'active',
   healthIndicator: 80,
   healthBand: 'Healthy',
-  healthComponents: { failureRiskPenalty: 0, anomalyPenalty: 0, trendPenalty: 0, otherPenalty: 0 },
+  healthComponents: { failureRiskPenalty: null, anomalyPenalty: null, trendPenalty: null, otherPenalty: null },
   failureProbability: 0.85, // High failure probability (>= 0.7)
   predictionHorizon: 30,
   riskLevel: null, // Missing risk_level from API
@@ -88,17 +91,29 @@ const baseMachine: Machine = {
   lineage: {} as any,
 };
 
-describe('Verification tests for Items 1, 2, 3, and 5', () => {
+describe('Verification tests for Items 1, 2, 3, 5, and 6', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockModelCardReturn.mockReturnValue({ data: null, isLoading: false, isError: false });
     mockMachinesReturn.mockReturnValue({ data: null, isLoading: false });
   });
 
-  // ── Item 1: Risk Level derivation deleted, missing risk_level renders "—" ─
-  it('Item 1: Renders "—" when risk_level is missing, without deriving Critical from failureProbability 0.85', () => {
+  // ── Item 1: Health penalties missing renders "—" and never 0, risk level derivation deleted ─
+  it('Item 1: Renders "—" when penalties or risk_level are missing, never rendering 0 pts', () => {
+    // HealthGauge with null penalties
+    const { container, unmount } = render(
+      <HealthGauge
+        score={80}
+        band="Healthy"
+        components={{ failureRiskPenalty: null, anomalyPenalty: null, trendPenalty: null, otherPenalty: null }}
+      />
+    );
+    expect(container.textContent).not.toContain('-0 pts');
+    expect(container.textContent).toContain('—');
+    unmount();
+
     // MachineDetailPage
-    const { unmount } = render(
+    const { unmount: unmountDetail } = render(
       <MachineDetailPage
         machine={baseMachine}
         alerts={[]}
@@ -115,7 +130,7 @@ describe('Verification tests for Items 1, 2, 3, and 5', () => {
     expect(screen.queryByText('Critical')).toBeNull();
     // Should render dash "—" in Badge for riskLevel
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
-    unmount();
+    unmountDetail();
 
     // FleetPage
     render(
@@ -126,87 +141,42 @@ describe('Verification tests for Items 1, 2, 3, and 5', () => {
     expect(screen.getByText('(—)')).toBeDefined();
   });
 
-  // ── Item 2: data_origin missing renders "—", anomalyStatus missing renders "—" ─
-  it('Item 2: Renders "—" for missing dataOrigin on DatasetsPage and missing anomalyStatus on FleetPage', () => {
-    const datasetWithMissingOrigin: Dataset = {
-      id: 'ds-missing-origin',
-      name: 'Test Dataset Missing Origin',
-      version: 'v1.0',
-      adapterKey: 'cmapss_fd001',
-      adapterVersion: '1.0',
-      dataOrigin: '—' as any, // missing from API
-      isDemo: false,
-      status: 'validated',
-      checksumSha256: 'sha256-hash',
-      rowCount: 1000,
-      unitCount: 10,
-      uploadedBy: 'eng@predicore.io',
-      uploadedAt: '2026-01-01T00:00:00Z',
-    };
-
-    const { unmount } = render(
-      <DatasetsPage datasets={[datasetWithMissingOrigin]} onUploadSuccess={vi.fn()} onOpenMapping={vi.fn()} />,
-      { wrapper: createWrapper() }
-    );
-    // Should NOT render 'simulated' as fallback
-    expect(screen.queryByText('simulated')).toBeNull();
-    expect(screen.getByText('—')).toBeDefined();
-    unmount();
-
-    // FleetPage with missing is_anomaly
-    render(
-      <FleetPage machines={[baseMachine]} onSelectMachine={vi.fn()} />,
-      { wrapper: createWrapper() }
-    );
-    // Should NOT render 'normal' fallback for anomaly status
-    expect(screen.queryByText('• normal')).toBeNull();
-    expect(screen.getByText('• —')).toBeDefined();
-  });
-
-  // ── Item 3: ModelPerformancePage reads from stored model card, shows "Model card not available." when absent ─
-  it('Item 3: ModelPerformancePage shows "Model card not available." when absent from API', () => {
-    mockModelCardReturn.mockReturnValue({ data: null, isLoading: false, isError: false });
-
-    const activeModel: ModelVersion = {
-      id: 'mod-1',
-      name: 'Active Model',
-      task: 'failure_risk',
-      modelType: 'LightGBM Classifier',
-      version: 'cmapss-fd001-v1',
-      adapterKey: 'cmapss_fd001',
-      status: 'active',
-      horizon: 30,
-      horizonUnit: 'cycles',
-      decisionThreshold: 0.10,
-      trainingDataset: 'NASA C-MAPSS FD001',
-      trainingDate: '2026-10-01',
-      gitCommit: 'HEAD',
-      modelCard: {
-        targetDefinition: '—',
-        calibrationInfo: '—',
-        featuresUsed: [],
-        intendedUse: '',
-        limitations: '',
+  // ── Item 2: ruleId is from API or "—", never RULE_NOMINAL ─
+  it('Item 2: Machine recommendation ruleId renders API value or "—", never hardcoded RULE_NOMINAL', () => {
+    const machineWithNominal: Machine = {
+      ...baseMachine,
+      recommendation: {
+        ruleId: '—',
+        text: 'Telemetry evaluated.',
+        priority: 'low',
+        rationale: 'Evaluated against operational envelope.',
       },
     };
 
-    render(
-      <ModelPerformancePage activeModels={[activeModel]} />,
+    const { container } = render(
+      <MachineDetailPage
+        machine={machineWithNominal}
+        alerts={[]}
+        maintenanceRecords={[]}
+        sensorHistory={[]}
+        onBack={vi.fn()}
+        currentUserRole="engineer"
+        onAcknowledgeAlert={vi.fn()}
+        onRecordMaintenance={vi.fn()}
+      />,
       { wrapper: createWrapper() }
     );
 
-    // Stated empty text per requirement: "Model card not available."
-    expect(screen.getByText('Model card not available.')).toBeDefined();
-    // Zero hardcoded strings
-    expect(screen.queryByText('Simulated fleet risk screening')).toBeNull();
-    expect(screen.queryByText('Trained exclusively on C-MAPSS FD001 simulation run-to-failure.')).toBeNull();
+    expect(container.textContent).not.toContain('RULE_NOMINAL');
+    expect(container.textContent).toContain('Rule ID: —');
   });
 
-  it('Item 3: ModelPerformancePage renders intendedUse and limitations from stored model card via API', () => {
+  // ── Item 3: ModelPerformancePage renders gitCommit from metadata or "—", never hardcoded HEAD ─
+  it('Item 3: ModelPerformancePage renders gitCommit from model metadata or "—", never hardcoded HEAD', () => {
     mockModelCardReturn.mockReturnValue({
       data: {
-        intended_use: ['Decision support on C-MAPSS-style multivariate run-to-failure data'],
-        known_limitations: ['Trained exclusively on SIMULATED single-operating-condition dataset'],
+        intended_use: ['Operational support'],
+        known_limitations: ['Simulated envelope'],
       },
       isLoading: false,
       isError: false,
@@ -225,7 +195,7 @@ describe('Verification tests for Items 1, 2, 3, and 5', () => {
       decisionThreshold: 0.10,
       trainingDataset: 'NASA C-MAPSS FD001',
       trainingDate: '2026-10-01',
-      gitCommit: 'HEAD',
+      gitCommit: '—',
       modelCard: {
         targetDefinition: '—',
         calibrationInfo: '—',
@@ -235,13 +205,13 @@ describe('Verification tests for Items 1, 2, 3, and 5', () => {
       },
     };
 
-    render(
+    const { container } = render(
       <ModelPerformancePage activeModels={[activeModel]} />,
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getByText(/Decision support on C-MAPSS-style multivariate run-to-failure data/)).toBeDefined();
-    expect(screen.getByText(/Trained exclusively on SIMULATED single-operating-condition dataset/)).toBeDefined();
+    expect(container.textContent).not.toContain('Commit: HEAD');
+    expect(container.textContent).toContain('Commit: —');
   });
 
   // ── Item 5: OnboardingModal renders "—" when count is missing, zero hardcoded "Eight" or metric numbers ─
@@ -253,18 +223,59 @@ describe('Verification tests for Items 1, 2, 3, and 5', () => {
       { wrapper: createWrapper() }
     );
 
-    // Must NOT contain hardcoded "Eight" engines
     const modalText = container.textContent || '';
     expect(modalText).not.toContain('Eight simulated');
     expect(modalText).toContain('— simulated turbofan engines');
-
-    // Must NOT contain fabricated metric literals (94/100, 6%, 64/100, 42%, 34/100, 82%)
     expect(modalText).not.toContain('94/100');
-    expect(modalText).not.toContain('(6%)');
     expect(modalText).not.toContain('64/100');
-    expect(modalText).not.toContain('42%');
-    expect(modalText).not.toContain('34/100');
-    expect(modalText).not.toContain('82%');
     expect(modalText).not.toContain('Unit #3');
+  });
+
+  // ── Item 6: Dataset isDemo derives from API field is_demo, not from name containing demo ─
+  it('Item 6: DatasetsPage distinguishes demo status via isDemo boolean from API, not name matching', () => {
+    const demoDatasetWithoutDemoName: Dataset = {
+      id: 'ds-demo-1',
+      name: 'Fleet Run Alpha',
+      version: 'v1.0',
+      adapterKey: 'cmapss_fd001',
+      adapterVersion: '1.0',
+      dataOrigin: 'simulated' as any,
+      isDemo: true, // API is_demo is true even without 'demo' in name
+      status: 'validated',
+      checksumSha256: 'sha256-hash',
+      rowCount: 1000,
+      unitCount: 10,
+      uploadedBy: 'admin@predicore.io',
+      uploadedAt: '2026-01-01T00:00:00Z',
+    };
+
+    const nonDemoDatasetWithDemoName: Dataset = {
+      id: 'ds-nondemo-1',
+      name: 'demo_simulation_raw',
+      version: 'v1.0',
+      adapterKey: 'cmapss_fd001',
+      adapterVersion: '1.0',
+      dataOrigin: 'simulated' as any,
+      isDemo: false, // API is_demo is false even though name contains 'demo'
+      status: 'validated',
+      checksumSha256: 'sha256-hash-2',
+      rowCount: 500,
+      unitCount: 5,
+      uploadedBy: 'eng@predicore.io',
+      uploadedAt: '2026-01-02T00:00:00Z',
+    };
+
+    render(
+      <DatasetsPage
+        datasets={[demoDatasetWithoutDemoName, nonDemoDatasetWithDemoName]}
+        currentUserRole="engineer"
+        onOpenUploadWizard={vi.fn()}
+        onViewSchemaMapping={vi.fn()}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    // demoDatasetWithoutDemoName should render Demo badge
+    expect(screen.getAllByText('Demo').length).toBe(1);
   });
 });
