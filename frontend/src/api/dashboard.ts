@@ -22,6 +22,7 @@ export interface DashboardSummary {
   operational_counts: Record<string, number>;
   active_count: number;
   maintenance_count: number;
+  server_time?: string | null;
 }
 
 export interface PriorityMachine {

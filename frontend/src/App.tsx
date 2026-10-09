@@ -14,6 +14,7 @@ import { AlertsPage } from './pages/AlertsPage';
 import { MaintenancePage } from './pages/MaintenancePage';
 import { ModelPerformancePage } from './pages/ModelPerformancePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ResetDemoModal } from './components/modals/ResetDemoModal';
 
 import {
   setAuthToken,
@@ -23,7 +24,6 @@ import {
   useDatasets,
   useMachines,
   useMaintenanceRecords,
-  useResetDemo,
   useResolveAlert,
   useCreateMaintenance,
   useSensorHistory,
@@ -59,8 +59,10 @@ function mapBackendMachineToMachine(bm: any): Machine {
     isAnomaly: bm.is_anomaly ?? null,
     anomalyThreshold: bm.anomaly_threshold ?? null,
     reliabilityStatus: bm.reliability_status ?? null,
+    reliabilityWarnings: (bm as any).reliability_flags?.warnings || null,
     isDemo: Boolean(bm.is_demo),
-    datasetBadge: bm.is_demo ? 'Demo / Simulated Data' : null,
+    datasetBadge: bm.is_demo ? 'Demo / Simulated Data' : 'User Upload',
+    datasetName: bm.dataset_name || (bm.is_demo ? 'NASA C-MAPSS FD001' : 'User Telemetry'),
     lastUpdated: bm.updated_at,
     explanation: {
       headline: `Unit ${bm.machine_code} status`,
@@ -78,7 +80,7 @@ function mapBackendMachineToMachine(bm: any): Machine {
     },
     lineage: {
       machineCode: bm.machine_code,
-      datasetName: 'NASA C-MAPSS FD001',
+      datasetName: bm.dataset_name || (bm.is_demo ? 'NASA C-MAPSS FD001' : 'User Telemetry'),
       datasetVersion: '1.0',
       schemaMappingHash: bm.schema_mapping_hash ?? null,
       featureConfigVersion: bm.feature_config_version ?? null,
@@ -138,7 +140,6 @@ function mapBackendMaintenanceToRecord(bm: any, machineCode = 'FD001-Unit'): Mai
 
 export function App() {
   const { data: currentUser, isLoading: isAuthLoading, refetch: refetchUser } = useCurrentUser();
-  const resetDemoMutation = useResetDemo();
   const acknowledgeAlertMutation = useAcknowledgeAlert();
   const resolveAlertMutation = useResolveAlert();
   const createMaintenanceMutation = useCreateMaintenance();
@@ -171,6 +172,7 @@ export function App() {
 
   const [selectedMachineId, setSelectedMachineId] = useState<string>('');
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
+  const [isResetDemoModalOpen, setIsResetDemoModalOpen] = useState<boolean>(false);
   const [schemaMappingDatasetId, setSchemaMappingDatasetId] = useState<string>('');
 
   // Transform backend entities to UI types
@@ -233,7 +235,7 @@ export function App() {
   };
 
   const handleResetDemo = () => {
-    resetDemoMutation.mutate();
+    setIsResetDemoModalOpen(true);
   };
 
   const handleAcknowledgeAlert = (alertId: string) => {
@@ -370,7 +372,7 @@ export function App() {
           element={
             schemaMappingDatasetId ? (
               <DatasetSchemaMappingPage
-                initialDatasetId={schemaMappingDatasetId}
+                initialDatasetId={schemaMappingDatasetId === 'new' ? undefined : schemaMappingDatasetId}
                 onBack={() => setSchemaMappingDatasetId('')}
                 onIngestSuccess={handleIngestSuccess}
               />
@@ -379,8 +381,7 @@ export function App() {
                 datasets={datasets}
                 currentUserRole={currentUser.role}
                 onOpenUploadWizard={() => {
-                  const firstDs = datasets[0]?.id ? datasets[0].id : '';
-                  setSchemaMappingDatasetId(firstDs);
+                  setSchemaMappingDatasetId('new');
                 }}
                 onViewSchemaMapping={handleViewSchemaMapping}
               />
@@ -438,6 +439,12 @@ export function App() {
             handleSelectMachine(machines[0].id);
           }
         }}
+      />
+
+      {/* Admin Reset Demo Modal */}
+      <ResetDemoModal
+        isOpen={isResetDemoModalOpen}
+        onClose={() => setIsResetDemoModalOpen(false)}
       />
     </AppLayout>
   );

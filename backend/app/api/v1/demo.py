@@ -13,12 +13,19 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_admin
 from app.core.db import get_db
-from app.models.entities import Job, ModelVersion, User
+from app.models.entities import (
+    Dataset,
+    Job,
+    Machine,
+    ModelVersion,
+    SensorReading,
+    User,
+)
 from app.services.demo_replay_worker import (
     get_replay_state,
     set_replay_state,
@@ -35,6 +42,15 @@ class DemoResetResponse(BaseModel):
     status: str
     message: str
     demo_units: Dict[str, Any]
+    cleared_user_datasets_count: int = 0
+    cleared_user_machines_count: int = 0
+
+
+class DemoResetPreviewResponse(BaseModel):
+    demo_machines_count: int
+    user_datasets_count: int
+    user_machines_count: int
+    user_readings_count: int
 
 
 class DemoReplayStatusResponse(BaseModel):
@@ -161,6 +177,33 @@ def stop_replay(
     )
 
 
+@router.get(
+    "/reset/preview",
+    response_model=DemoResetPreviewResponse,
+    summary="Preview items that will be affected by demo reset (Admin only)",
+)
+def preview_demo_reset(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin),
+):
+    """Returns counts of demo machines and user-uploaded datasets/machines that can be cleared."""
+    user_ds_count = db.scalar(select(func.count(Dataset.id)).where(Dataset.is_demo.is_(False))) or 0
+    user_mach_count = db.scalar(select(func.count(Machine.id)).where(Machine.is_demo.is_(False))) or 0
+    user_readings_count = db.scalar(
+        select(func.count(SensorReading.id))
+        .join(Machine, SensorReading.machine_id == Machine.id)
+        .where(Machine.is_demo.is_(False))
+    ) or 0
+    demo_mach_count = db.scalar(select(func.count(Machine.id)).where(Machine.is_demo.is_(True))) or 3
+
+    return DemoResetPreviewResponse(
+        demo_machines_count=demo_mach_count,
+        user_datasets_count=user_ds_count,
+        user_machines_count=user_mach_count,
+        user_readings_count=user_readings_count,
+    )
+
+
 @router.post(
     "/reset",
     response_model=DemoResetResponse,
@@ -168,6 +211,7 @@ def stop_replay(
     summary="Reset demo fleet to initial seeded state (Admin only)",
 )
 def reset_demo_fleet(
+    clear_user_datasets: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin),
 ):
@@ -177,6 +221,7 @@ def reset_demo_fleet(
     Clears any demo machine alerts, maintenance actions, or predictions,
     and resets their operational status to 'active'.
     Also stops any running replay stream.
+    If clear_user_datasets is True, safely purges all user-uploaded datasets and their machines.
     Strictly restricted to Admin role.
     """
     # Stop any running replay
@@ -188,6 +233,25 @@ def reset_demo_fleet(
         j.status = "completed"
         j.completed_at = datetime.now(timezone.utc)
     db.commit()
+
+    from app.core.rate_limit import reset_all_limiters
+    reset_all_limiters()
+
+    cleared_ds = 0
+    cleared_mach = 0
+    if clear_user_datasets:
+        # Purge user-uploaded machines and related entities
+        user_machines = db.scalars(select(Machine).where(Machine.is_demo.is_(False))).all()
+        cleared_mach = len(user_machines)
+        for m in user_machines:
+            db.delete(m)
+        db.flush()
+
+        user_datasets = db.scalars(select(Dataset).where(Dataset.is_demo.is_(False))).all()
+        cleared_ds = len(user_datasets)
+        for ds in user_datasets:
+            db.delete(ds)
+        db.commit()
 
     active_model = db.scalar(
         select(ModelVersion).where(
@@ -223,6 +287,9 @@ def reset_demo_fleet(
 
     return DemoResetResponse(
         status="success",
-        message="Demo fleet reset successfully to initial baseline.",
+        message="Demo fleet reset successfully to initial baseline."
+        + (f" Cleared {cleared_ds} user dataset(s) and {cleared_mach} machine(s)." if clear_user_datasets else ""),
         demo_units=results,
+        cleared_user_datasets_count=cleared_ds,
+        cleared_user_machines_count=cleared_mach,
     )

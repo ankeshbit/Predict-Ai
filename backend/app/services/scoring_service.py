@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import SessionLocal
@@ -26,8 +26,10 @@ from app.ml.pdm_health import health_breakdown
 from app.ml.pdm_inference import ModelBundle, score_trajectory
 from app.ml.pdm_recommendation import recommend_maintenance
 from app.models.entities import (
+    Alert,
     Anomaly,
     Dataset,
+    DatasetCompatibilityCheck,
     HealthIndicatorConfig,
     Job,
     Machine,
@@ -161,6 +163,18 @@ def score_machine_trajectory(
     bands_setting = db.scalar(select(Setting).where(Setting.key == "health_bands"))
     configured_bands = bands_setting.value.get("bands", []) if bands_setting and bands_setting.value else []
 
+    # Check if dataset has compatibility warnings
+    has_ood_warning = False
+    if machine.dataset_id:
+        chk = db.scalar(
+            select(DatasetCompatibilityCheck)
+            .where(DatasetCompatibilityCheck.dataset_id == machine.dataset_id)
+            .order_by(DatasetCompatibilityCheck.checked_at.desc())
+            .limit(1)
+        )
+        if chk and chk.status == "warning":
+            has_ood_warning = True
+
     new_predictions: List[Prediction] = []
     new_anomalies: List[Anomaly] = []
 
@@ -187,6 +201,11 @@ def score_machine_trajectory(
         health_band = determine_health_band(hi_val, configured_bands) or "—"
 
         pred_id = uuid.uuid4()
+        pred_rel_flags = {"data_quality": dq_status}
+        if has_ood_warning:
+            pred_rel_flags["out_of_distribution_warning"] = True
+            pred_rel_flags["reliability_label"] = "Reduced Reliability (Out-of-Distribution Telemetry)"
+
         pred = Prediction(
             id=pred_id,
             machine_id=machine_id,
@@ -212,7 +231,7 @@ def score_machine_trajectory(
             clipping_adjustment=clip_adj,
             input_window_start=max(1, cycle_val - 30),
             input_window_end=cycle_val,
-            reliability_flags={"data_quality": dq_status},
+            reliability_flags=pred_rel_flags,
         )
         new_predictions.append(pred)
 
@@ -284,6 +303,7 @@ def run_scoring_job(
     dataset_id: uuid.UUID,
     machine_ids: Optional[List[uuid.UUID]] = None,
     bundle_path: Optional[str | Path] = None,
+    acknowledged_warnings: bool = False,
     _db: Optional[Session] = None,
 ):
     """
@@ -318,7 +338,7 @@ def run_scoring_job(
             job.status = "completed"
             job.progress_pct = 100.0
             job.completed_at = datetime.now(timezone.utc)
-            job.result = {"scored_machines": 0, "message": "No machines found to score"}
+            job.result = {"scored_machines": 0, "units_scored": 0, "alerts_opened": 0, "message": "No machines found to score"}
             db.commit()
             return
 
@@ -334,6 +354,12 @@ def run_scoring_job(
             job.progress_pct = round(progress, 1)
             db.commit()
 
+        opened_alerts = db.scalar(
+            select(func.count(Alert.id))
+            .join(Machine, Alert.machine_id == Machine.id)
+            .where(Machine.dataset_id == dataset_id, Alert.status == "open")
+        ) or 0
+
         job.status = "completed"
         job.progress_pct = 100.0
         job.completed_at = datetime.now(timezone.utc)
@@ -341,6 +367,8 @@ def run_scoring_job(
             "dataset_id": str(dataset_id),
             "total_machines": total_machines,
             "scored_machines": scored_count,
+            "units_scored": scored_count,
+            "alerts_opened": opened_alerts,
             "status": "completed",
         }
         db.commit()

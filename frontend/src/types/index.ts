@@ -74,8 +74,10 @@ export interface Machine {
   anomalyThreshold?: number | null;
   reliabilityStatus: ReliabilityStatus | null;
   reliabilityWarningReason?: string;
+  reliabilityWarnings?: string[] | null;
   isDemo?: boolean;
   datasetBadge: string | null;
+  datasetName?: string | null;
   lastUpdated: string;
   explanation: PredictionExplanation;
   recommendation: {

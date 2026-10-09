@@ -148,7 +148,9 @@ def run_ingestion_job(
         job.result = {
             "dataset_id": str(dataset.id),
             "rows_ingested": total_rows,
+            "readings_ingested": total_rows,
             "units_ingested": len(unit_ids),
+            "units_created": len(unit_ids),
         }
         db.commit()
         logger.info(f"Ingestion job {job_id} successfully completed: {total_rows} rows for {len(unit_ids)} units.")

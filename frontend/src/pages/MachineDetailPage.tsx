@@ -252,7 +252,7 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
           <div className="p-4 rounded-md bg-[#0f1520] border-l-2 border-indigo-500 border-t border-r border-b border-[#1f2838] space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-indigo-400">
-                1. AI Recommendation (Decision Support)
+                1. AI Recommendation (Decision Support) – not a confirmed diagnosis
               </span>
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800 font-bold uppercase">
                 Priority: {machine.recommendation.priority}
@@ -268,8 +268,8 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
               <div><strong>Rationale:</strong> {machine.recommendation.rationale}</div>
             </div>
 
-            <div className="text-[10px] font-mono text-slate-500 border-t border-[#1a2333] pt-2">
-              Note: AI-generated recommendation, not a confirmed diagnosis. Verification required.
+            <div className="text-[10px] font-mono text-amber-300/90 border-t border-[#1a2333] pt-2">
+              AI-generated recommendation, not a confirmed diagnosis. Verify with a qualified engineer.
             </div>
 
             {/* Alert Status Lifecycle: Open -> Acknowledged -> Resolved */}
@@ -359,29 +359,47 @@ export const MachineDetailPage: React.FC<MachineDetailPageProps> = ({
 
       {/* 6. Machine Lineage Trace (Audit Metadata) */}
       <Card
-        title="Prediction Lineage Trace"
-        subtitle="End-to-end data, schema, model, and cycle provenance (PRD §FR-16)"
+        title="How was this prediction generated?"
+        subtitle="End-to-end data, schema mapping hash, model version, feature window, and reliability warnings (PRD §FR-16)"
       >
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs font-mono">
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
             <div className="text-[10px] text-slate-500">Dataset</div>
-            <div className="text-slate-200 font-semibold truncate">{machine.lineage.datasetName}</div>
+            <div className="text-slate-200 font-semibold truncate" title={machine.lineage.datasetName}>
+              {machine.lineage.datasetName}
+            </div>
           </div>
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
             <div className="text-[10px] text-slate-500">Schema Hash</div>
-            <div className="text-slate-200 font-semibold truncate">{machine.lineage.schemaMappingHash}</div>
+            <div className="text-slate-200 font-semibold truncate" title={machine.lineage.schemaMappingHash ?? '—'}>
+              {machine.lineage.schemaMappingHash ?? '—'}
+            </div>
           </div>
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
-            <div className="text-[10px] text-slate-500">Feature Config</div>
-            <div className="text-slate-200 font-semibold truncate">{machine.lineage.featureConfigVersion}</div>
+            <div className="text-[10px] text-slate-500">Model Version</div>
+            <div className="text-blue-400 font-semibold truncate" title={machine.lineage.failureModelVersion ?? '—'}>
+              {machine.lineage.failureModelVersion ?? '—'}
+            </div>
           </div>
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
-            <div className="text-[10px] text-slate-500">Failure Model</div>
-            <div className="text-blue-400 font-semibold truncate">{machine.lineage.failureModelVersion}</div>
+            <div className="text-[10px] text-slate-500">Feature Window</div>
+            <div className="text-slate-200 font-semibold truncate">
+              {machine.lineage.inputWindowLength != null ? `L=${machine.lineage.inputWindowLength}` : 'L=30 cycles'}
+            </div>
           </div>
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
-            <div className="text-[10px] text-slate-500">Anomaly Model</div>
-            <div className="text-indigo-400 font-semibold truncate">{machine.lineage.anomalyModelVersion}</div>
+            <div className="text-[10px] text-slate-500">Reliability Warnings</div>
+            <div
+              className={`font-semibold truncate ${
+                machine.reliabilityWarnings && machine.reliabilityWarnings.length > 0
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`}
+            >
+              {machine.reliabilityWarnings && machine.reliabilityWarnings.length > 0
+                ? `${machine.reliabilityWarnings.length} warning(s)`
+                : 'None (nominal)'}
+            </div>
           </div>
           <div className="p-2 rounded bg-[#0d121a] border border-[#1b2332]">
             <div className="text-[10px] text-slate-500">Predicted At</div>

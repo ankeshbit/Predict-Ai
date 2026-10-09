@@ -9,6 +9,20 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict
 
 
+class DatasetProfileResponse(BaseModel):
+    filename: str
+    total_rows: int
+    total_columns: int
+    detected_delimiter: str
+    raw_delimiter: Optional[str] = None
+    has_header: bool
+    column_names: List[str]
+    duplicate_rows: int
+    missing_counts: Dict[str, int]
+    numeric_stats: Dict[str, Dict[str, float]]
+    unit_stats: Optional[Dict[str, Any]] = None
+
+
 class DatasetResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -44,6 +58,7 @@ class DatasetUploadResponse(BaseModel):
     status: str
     staging_filename: str
     created_at: datetime
+    profile: Optional[Dict[str, Any]] = None
 
 
 class ValidateDatasetResponse(BaseModel):
@@ -51,9 +66,23 @@ class ValidateDatasetResponse(BaseModel):
     adapter_key: str
     is_valid: bool
     detected_mapping: Dict[str, str]
+    confidences: Optional[Dict[str, float]] = None
     unmapped_columns: List[str]
     schema_mapping_hash: str
     row_count: int
+    profile: Optional[Dict[str, Any]] = None
+
+
+class UpdateMappingRequest(BaseModel):
+    mapping: Dict[str, str]
+
+
+class UpdateMappingResponse(BaseModel):
+    dataset_id: uuid.UUID
+    schema_mapping: Dict[str, str]
+    schema_mapping_hash: str
+    is_valid: bool
+    unmapped_columns: List[str]
 
 
 class CheckItem(BaseModel):
@@ -72,7 +101,17 @@ class CompatibilityCheckResponse(BaseModel):
     total_checks: int
     passed_checks: int
     failed_checks: int
+    warning_checks: int = 0
+    has_warnings: bool = False
+    summary_sentence: Optional[str] = None
+    plain_language_explanation: Optional[str] = None
+    ood_sensors: Optional[List[str]] = None
+    range_comparisons: Optional[Dict[str, Any]] = None
     checks: List[CheckItem]
+
+
+class IngestDatasetRequest(BaseModel):
+    acknowledged_warnings: bool = False
 
 
 class IngestDatasetResponse(BaseModel):
@@ -80,3 +119,12 @@ class IngestDatasetResponse(BaseModel):
     dataset_id: uuid.UUID
     status: str
     message: str
+
+
+class DatasetSummaryResponse(BaseModel):
+    dataset_id: uuid.UUID
+    units_count: int
+    readings_count: int
+    scored_count: int
+    alerts_count: int
+

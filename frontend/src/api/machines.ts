@@ -22,6 +22,7 @@ export interface BackendMachine {
   health_band?: 'Critical' | 'Poor' | 'Warning' | 'Healthy' | 'Excellent' | null;
   is_demo: boolean;
   demo_cluster?: string | null;
+  dataset_name?: string | null;
   created_at: string;
   updated_at: string;
   // Latest prediction enrichment — null when no prediction exists yet

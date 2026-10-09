@@ -23,6 +23,25 @@ FD001_CONSTANT_CHANNELS = [
     "op_setting_3",
 ]
 
+DEFAULT_FD001_FEATURE_RANGES: Dict[str, Dict[str, float]] = {
+    "operating_setting_1": {"min": -0.0087, "max": 0.0087},
+    "operating_setting_2": {"min": -0.0006, "max": 0.0006},
+    "sensor_2": {"min": 641.21, "max": 644.53},
+    "sensor_3": {"min": 1571.06, "max": 1616.91},
+    "sensor_4": {"min": 1385.19, "max": 1441.49},
+    "sensor_7": {"min": 549.85, "max": 555.86},
+    "sensor_8": {"min": 2387.9, "max": 2388.56},
+    "sensor_9": {"min": 9023.85, "max": 9244.59},
+    "sensor_11": {"min": 46.85, "max": 48.52},
+    "sensor_12": {"min": 518.69, "max": 523.38},
+    "sensor_13": {"min": 2387.88, "max": 2388.56},
+    "sensor_14": {"min": 8099.94, "max": 8293.72},
+    "sensor_15": {"min": 8.3358, "max": 8.5848},
+    "sensor_17": {"min": 388.0, "max": 399.0},
+    "sensor_20": {"min": 38.14, "max": 39.41},
+    "sensor_21": {"min": 22.8942, "max": 23.6184},
+}
+
 
 @dataclass
 class CheckResult:
@@ -42,6 +61,12 @@ class CompatibilityReport:
     passed_checks: int
     failed_checks: int
     checks: List[CheckResult]
+    summary_sentence: str = ""
+    plain_language_explanation: str = ""
+    warning_checks: int = 0
+    has_warnings: bool = False
+    ood_sensors: Optional[List[str]] = None
+    range_comparisons: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -49,6 +74,12 @@ class CompatibilityReport:
             "total_checks": self.total_checks,
             "passed_checks": self.passed_checks,
             "failed_checks": self.failed_checks,
+            "warning_checks": self.warning_checks,
+            "has_warnings": self.has_warnings,
+            "summary_sentence": self.summary_sentence,
+            "plain_language_explanation": self.plain_language_explanation,
+            "ood_sensors": self.ood_sensors or [],
+            "range_comparisons": self.range_comparisons or {},
             "checks": [asdict(c) for c in self.checks],
         }
 
@@ -57,6 +88,7 @@ def run_fr6_compatibility_checks(
     raw_df: pd.DataFrame,
     mapping: Dict[str, str],
     adapter_key: str = "cmapss_fd001",
+    feature_ranges: Optional[Dict[str, Dict[str, float]]] = None,
 ) -> CompatibilityReport:
     """
     Executes all 11 FR-6 verification checks against the uploaded DataFrame.
@@ -113,7 +145,16 @@ def run_fr6_compatibility_checks(
             total_checks=11,
             passed_checks=1,
             failed_checks=10,
+            warning_checks=0,
+            has_warnings=False,
             checks=checks,
+            summary_sentence="This dataset is not compatible with the selected model. Failed 10 of 11 compatibility checks.",
+            plain_language_explanation=(
+                "Why this model cannot be used on this data: The active model bundle was trained exclusively "
+                "on NASA C-MAPSS FD001 simulated turbofan engine degradation data (21 sensors, 3 operational settings). "
+                "The uploaded file does not contain the required C-MAPSS telemetry schema. Scoring non-turbofan data "
+                "with this model would produce meaningless numbers with zero physical or engineering validity."
+            ),
         )
 
     # Invert mapping and transform
@@ -361,16 +402,57 @@ def run_fr6_compatibility_checks(
             )
         )
     else:
-        checks.append(
-            CheckResult(
-                check_number=7,
-                check_name="Value Range Enforcement",
-                status="passed",
-                expected_value="Finite values within realistic physical bounds",
-                found_value="All sensor values are within valid operational boundaries",
-                how_to_fix="None. Check passed.",
+        # Evaluate value ranges against training distribution if feature_ranges provided
+        range_comparisons: Dict[str, Any] = {}
+        ood_cols: List[str] = []
+
+        target_ranges = feature_ranges or {}
+        for col in sensor_cols:
+            if col in target_ranges:
+                t_min = float(target_ranges[col].get("min", 0.0))
+                t_max = float(target_ranges[col].get("max", 0.0))
+                col_series = df[col].dropna()
+                if not col_series.empty:
+                    f_min = float(col_series.min())
+                    f_max = float(col_series.max())
+                    is_ood = bool((f_min < t_min) or (f_max > t_max))
+                    range_comparisons[col] = {
+                        "train_min": round(t_min, 4),
+                        "train_max": round(t_max, 4),
+                        "uploaded_min": round(f_min, 4),
+                        "uploaded_max": round(f_max, 4),
+                        "is_ood": is_ood,
+                    }
+                    if is_ood:
+                        ood_cols.append(col)
+
+        if ood_cols:
+            checks.append(
+                CheckResult(
+                    check_number=7,
+                    check_name="Value Range Enforcement",
+                    status="warning",
+                    expected_value="Sensor readings within offline training envelope",
+                    found_value=f"{len(ood_cols)} channel(s) out-of-distribution: {', '.join(ood_cols[:4])}{'...' if len(ood_cols) > 4 else ''}",
+                    how_to_fix="Values exceed model training distribution. Scoring permitted only after acknowledging reduced prediction reliability.",
+                    details={
+                        "range_comparisons": range_comparisons,
+                        "ood_columns": ood_cols,
+                    },
+                )
             )
-        )
+        else:
+            checks.append(
+                CheckResult(
+                    check_number=7,
+                    check_name="Value Range Enforcement",
+                    status="passed",
+                    expected_value="Finite values within realistic physical bounds",
+                    found_value="All sensor values are within valid operational boundaries",
+                    how_to_fix="None. Check passed.",
+                    details={"range_comparisons": range_comparisons} if range_comparisons else None,
+                )
+            )
 
     # -------------------------------------------------------------
     # Check 8: Constant Column Check
@@ -522,13 +604,54 @@ def run_fr6_compatibility_checks(
     # Overall calculation
     total_checks = len(checks)
     failed_checks = sum(1 for c in checks if c.status == "failed")
+    warning_checks = sum(1 for c in checks if c.status == "warning")
     passed_checks = sum(1 for c in checks if c.status == "passed")
     overall_passed = failed_checks == 0
+    has_warnings = warning_checks > 0
+
+    # Extract OOD columns and comparisons from Check 7
+    ood_sensors_list: List[str] = []
+    range_comps: Dict[str, Any] = {}
+    c7 = next((c for c in checks if c.check_number == 7), None)
+    if c7 and c7.details:
+        ood_sensors_list = c7.details.get("ood_columns", [])
+        range_comps = c7.details.get("range_comparisons", {})
+
+    if failed_checks > 0:
+        summary_sentence = f"This dataset is not compatible with the selected model. Failed {failed_checks} of {total_checks} compatibility checks."
+        failed_names = [c.check_name for c in checks if c.status == "failed"]
+        plain_language_explanation = (
+            f"Why this model cannot be used on this data: The uploaded dataset failed {failed_checks} verification checks "
+            f"required by the model contract ({', '.join(failed_names[:3])}{'...' if len(failed_names) > 3 else ''}). "
+            "The active model was trained strictly on simulated NASA C-MAPSS FD001 turbofan degradation trajectories. "
+            "To guarantee reliable inference, telemetry must satisfy sequence length (L >= 30), monotonic cycles, "
+            "zero duplicate timestamps, and valid sensor channels. Scoring is blocked to prevent false or invalid predictions."
+        )
+    elif has_warnings:
+        summary_sentence = f"Dataset passed structural checks with {warning_checks} warning(s). Out-of-distribution values detected."
+        plain_language_explanation = (
+            f"Why this model can be used with caution: The dataset has valid schema and sequence structure, but "
+            f"{len(ood_sensors_list)} sensor channel(s) ({', '.join(ood_sensors_list[:3])}) contain values outside "
+            "the offline training distribution envelope. Predictions can be generated after acknowledging warnings, "
+            "and will carry an explicit Reduced Reliability indicator."
+        )
+    else:
+        summary_sentence = f"Dataset meets all {total_checks} compatibility criteria for the active C-MAPSS FD001 model bundle."
+        plain_language_explanation = (
+            "Dataset is fully compatible: Telemetry channels, sequence lengths, cycle continuity, and sensor value distributions "
+            "strictly conform to the active NASA C-MAPSS FD001 model bundle specifications. Ready for ingestion and scoring."
+        )
 
     return CompatibilityReport(
         passed=overall_passed,
         total_checks=total_checks,
         passed_checks=passed_checks,
         failed_checks=failed_checks,
+        warning_checks=warning_checks,
+        has_warnings=has_warnings,
+        summary_sentence=summary_sentence,
+        plain_language_explanation=plain_language_explanation,
+        ood_sensors=ood_sensors_list,
+        range_comparisons=range_comps,
         checks=checks,
     )

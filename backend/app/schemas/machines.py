@@ -15,6 +15,7 @@ class MachineResponse(BaseModel):
 
     id: uuid.UUID
     dataset_id: Optional[uuid.UUID] = None
+    dataset_name: Optional[str] = None
     machine_code: str
     name: Optional[str] = None
     machine_type: Optional[str] = None

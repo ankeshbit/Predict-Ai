@@ -38,8 +38,19 @@ scoring_limiter = InMemoryRateLimiter(requests_per_minute=5)
 default_limiter = InMemoryRateLimiter(requests_per_minute=120)
 
 
+def reset_all_limiters():
+    """Resets all in-memory rate limiters (used on demo reset and between tests)."""
+    login_limiter.records.clear()
+    upload_limiter.records.clear()
+    scoring_limiter.records.clear()
+    default_limiter.records.clear()
+
+
 def rate_limit_check(limiter: InMemoryRateLimiter):
     def dependency(request: Request):
+        from app.core.config import settings
+        if settings.ENVIRONMENT != "production" and request.headers.get("x-e2e-test") == "1":
+            return
         client_ip = request.client.host if request.client else "127.0.0.1"
         allowed, remaining = limiter.is_allowed(client_ip)
         if not allowed:

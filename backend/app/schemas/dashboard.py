@@ -5,7 +5,7 @@ PRD §14.7
 
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -24,6 +24,7 @@ class DashboardSummaryResponse(BaseModel):
     operational_counts: dict  # e.g. {"active": 7, "maintenance": 1, "archived": 0}
     active_count: int
     maintenance_count: int
+    server_time: Optional[datetime] = None
 
 
 class PriorityMachineItem(BaseModel):

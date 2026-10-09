@@ -16,6 +16,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.models.entities import (
     Alert,
     Anomaly,
+    Dataset,
     Machine,
     MaintenanceRecord,
     ModelVersion,
@@ -91,7 +92,14 @@ def _enrich_machine_response(machine: Machine, db: Session) -> Dict[str, Any]:
         .limit(1)
     )
 
+    dataset_name = None
+    if machine.dataset_id:
+        ds = db.get(Dataset, machine.dataset_id)
+        if ds:
+            dataset_name = ds.name
+
     return {
+        "dataset_name": dataset_name,
         "failure_probability": latest_pred.failure_probability,
         "risk_level": latest_pred.risk_level,
         "current_cycle": resolved_cycle,

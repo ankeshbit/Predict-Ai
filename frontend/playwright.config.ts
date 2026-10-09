@@ -15,6 +15,9 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: 'http://localhost:5173',
+    extraHTTPHeaders: {
+      'x-e2e-test': '1',
+    },
     trace: 'on-first-retry',
   },
   projects: [

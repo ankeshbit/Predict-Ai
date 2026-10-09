@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_admin
 from app.core.db import get_db
 from app.core.errors import ConflictError, DatasetIncompatibleError, NotFoundError
-from app.models.entities import Dataset, Job, ModelVersion, User
+from app.models.entities import Dataset, DatasetCompatibilityCheck, Job, ModelVersion, User
 from app.schemas.scoring import ScoringRunRequest, ScoringRunResponse
 from app.services.scoring_service import run_scoring_job
 
@@ -43,6 +43,20 @@ def create_scoring_run(
             details={"dataset_id": str(dataset.id), "status": dataset.status},
         )
 
+    # Check if dataset has out-of-distribution warnings requiring explicit acknowledgment
+    chk = db.scalar(
+        select(DatasetCompatibilityCheck)
+        .where(DatasetCompatibilityCheck.dataset_id == dataset.id)
+        .order_by(DatasetCompatibilityCheck.checked_at.desc())
+        .limit(1)
+    )
+    if chk and chk.status == "warning" and not payload.acknowledged_warnings:
+        raise ConflictError(
+            code="WARNINGS_NOT_ACKNOWLEDGED",
+            message="This dataset contains out-of-distribution warnings that must be acknowledged before scoring.",
+            details=chk.report,
+        )
+
     # Verify active model exists
     active_model = db.scalar(
         select(ModelVersion).where(
@@ -67,6 +81,7 @@ def create_scoring_run(
             "dataset_id": str(payload.dataset_id),
             "machine_ids": [str(m) for m in payload.machine_ids] if payload.machine_ids else [],
             "model_version_id": str(active_model.id),
+            "acknowledged_warnings": payload.acknowledged_warnings,
         },
         created_by_user_id=current_user.id,
     )
@@ -80,6 +95,7 @@ def create_scoring_run(
         job_id=job.id,
         dataset_id=dataset.id,
         machine_ids=payload.machine_ids,
+        acknowledged_warnings=payload.acknowledged_warnings,
     )
 
     return ScoringRunResponse(

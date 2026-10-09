@@ -2,6 +2,7 @@
  * Demo Fleet API hooks.
  *
  * useResetDemo — POST /demo/reset (admin only, invalidates everything).
+ * useResetDemoPreview — GET /demo/reset/preview (shows what will be deleted).
  * useReplayStatus — GET /demo/replay/status (polled every POLL_INTERVAL_MS, admin only).
  * useStartReplay — POST /demo/replay/start (admin only, advances one cycle).
  * useStopReplay — POST /demo/replay/stop (admin only).
@@ -13,12 +14,24 @@ import { apiFetch } from './client';
 export interface DemoResetResult {
   status: string;
   message: string;
-  demo_units: Record<string, {
-    machine_code: string;
-    cutoff_cycle: number;
-    readings_count: number;
-    health_indicator: number;
-  }>;
+  demo_units: Record<
+    string,
+    {
+      machine_code: string;
+      cutoff_cycle: number;
+      readings_count: number;
+      health_indicator: number;
+    }
+  >;
+}
+
+export interface ResetDemoPreviewResponse {
+  demo_machines_to_reset: number;
+  user_machines_to_delete: number;
+  user_datasets_to_delete: number;
+  user_dataset_names: string[];
+  user_predictions_to_delete: number;
+  user_alerts_to_delete: number;
 }
 
 export interface DemoReplayStatus {
@@ -28,11 +41,23 @@ export interface DemoReplayStatus {
   message: string;
 }
 
+export function useResetDemoPreview(enabled = true) {
+  return useQuery({
+    queryKey: ['demo', 'reset', 'preview'],
+    queryFn: () => apiFetch<ResetDemoPreviewResponse>('/demo/reset/preview'),
+    enabled,
+  });
+}
+
 export function useResetDemo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      apiFetch<DemoResetResult>('/demo/reset', { method: 'POST' }),
+    mutationFn: (variables?: { clearUserDatasets?: boolean }) => {
+      const clearUser = variables?.clearUserDatasets ? 'true' : 'false';
+      return apiFetch<DemoResetResult>(`/demo/reset?clear_user_datasets=${clearUser}`, {
+        method: 'POST',
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries();
     },

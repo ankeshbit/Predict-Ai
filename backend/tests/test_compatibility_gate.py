@@ -151,7 +151,7 @@ def test_check_10_zero_units():
 # End-to-End API Tests with Sample Fixtures
 # -------------------------------------------------------------
 def test_api_compatible_fd001_passes_gate(client, admin_headers, db):
-    fixture_path = FIXTURES_DIR / "compatible_fd001_synthetic_test_fixture.csv"
+    fixture_path = FIXTURES_DIR / "compatible_fd001_slice.csv"
     assert fixture_path.exists(), f"Missing test fixture: {fixture_path}"
 
     with open(fixture_path, "rb") as f:

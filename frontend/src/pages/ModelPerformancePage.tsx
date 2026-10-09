@@ -288,57 +288,126 @@ export const ModelPerformancePage: React.FC<ModelPerformancePageProps> = ({
 
       {/* Primary Analytical Metrics Strip: PR-AUC, Precision, Recall, F1, Brier Score, ECE, ROC-AUC */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
-        <div className="p-3 rounded-lg bg-[#111620] border border-emerald-900/40 bg-emerald-950/10">
-          <div className="text-[10px] text-emerald-400 font-mono uppercase font-semibold">1. PR-AUC (Primary)</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-emerald-900/40 bg-emerald-950/10 cursor-help"
+          title="PR-AUC: Precision-Recall Area Under Curve. Primary metric for class-imbalanced run-to-failure detection."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-emerald-400 font-mono uppercase font-semibold">1. PR-AUC (Primary)</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-emerald-400 mt-1">{metrics.prAuc}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Detection metric</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
+          </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-slate-400 font-mono uppercase font-semibold">2. Precision</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="Precision: True Positives / (True Positives + False Positives) at configured threshold."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">2. Precision</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-slate-100 mt-1">{metrics.precision}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-            At threshold {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
           </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-slate-400 font-mono uppercase font-semibold">3. Recall</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="Recall: True Positives / (True Positives + False Negatives) at configured threshold."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">3. Recall</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-slate-100 mt-1">{metrics.recall}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-            At threshold {activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
           </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-slate-400 font-mono uppercase font-semibold">4. F1 Score</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="F1 Score: Harmonic mean of precision and recall: 2 * (Precision * Recall) / (Precision + Recall)."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-slate-400 font-mono uppercase font-semibold">4. F1 Score</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-slate-200 mt-1">{metrics.f1Score}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Harmonic Mean</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
+          </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-teal-400 font-mono uppercase font-semibold">5. Brier Score</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="Brier Score: Mean squared error of probability calibration: (1/N) * sum((prob - actual)^2). Lower is better."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-teal-400 font-mono uppercase font-semibold">5. Brier Score</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-teal-400 mt-1">{metrics.brierScore}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Probability calibration</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
+          </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-teal-400 font-mono uppercase font-semibold">6. ECE</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="ECE (Expected Calibration Error): Weighted difference between predicted probability bins and empirical accuracy."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-teal-400 font-mono uppercase font-semibold">6. ECE</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-teal-400 mt-1">{metrics.ece}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Expected Calib. Error</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
+          </div>
         </div>
 
-        <div className="p-3 rounded-lg bg-[#111620] border border-[#1f2838]">
-          <div className="text-[10px] text-blue-400 font-mono uppercase font-semibold">7. ROC-AUC</div>
+        <div
+          className="p-3 rounded-lg bg-[#111620] border border-[#1f2838] cursor-help"
+          title="ROC-AUC: Area under the Receiver Operating Characteristic curve. Measures model discrimination across all possible thresholds."
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-blue-400 font-mono uppercase font-semibold">7. ROC-AUC</span>
+            <span className="text-[9px] px-1 rounded bg-[#0b1018] text-slate-400 font-mono border border-[#1b2536]">
+              {selectedSet === 'internal_test' ? 'Internal' : 'Benchmark'}
+            </span>
+          </div>
           <div className="text-xl font-bold font-mono text-blue-400 mt-1">{metrics.rocAuc}</div>
-          <div className="text-[10px] font-mono text-slate-500 mt-0.5">Discrimination</div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={`Source: ${selectedSet}`}>
+            Source: {selectedSet}
+          </div>
         </div>
       </div>
 
       {/* Secondary Benchmark Note: Accuracy */}
-      <div className="px-3.5 py-2 rounded bg-[#10151f] border border-[#1d2535] flex items-center justify-between text-xs font-mono">
+      <div
+        className="px-3.5 py-2 rounded bg-[#10151f] border border-[#1d2535] flex items-center justify-between text-xs font-mono cursor-help"
+        title="Accuracy: (TP + TN) / Total. Non-primary benchmark due to class imbalance."
+      >
         <span className="text-slate-400">
-          Secondary Benchmark: <strong className="text-slate-200">Accuracy = {metrics.accuracy}</strong> (imbalance-sensitive; non-primary)
+          Secondary Benchmark: <strong className="text-slate-200">Accuracy = {metrics.accuracy}</strong> (Source: {selectedSet}; imbalance-sensitive)
         </span>
         <span className="text-slate-500 text-[11px]">
           Operating decision threshold: <strong>{activeModel.decisionThreshold != null ? activeModel.decisionThreshold.toFixed(2) : '—'}</strong> &bull; Calibration: {(evaluation as any).calibration_method || '—'}

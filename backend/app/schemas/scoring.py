@@ -12,6 +12,7 @@ from pydantic import BaseModel
 class ScoringRunRequest(BaseModel):
     dataset_id: uuid.UUID
     machine_ids: Optional[List[uuid.UUID]] = None
+    acknowledged_warnings: bool = False
 
 
 class ScoringRunResponse(BaseModel):

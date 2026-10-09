@@ -3,6 +3,7 @@ Fleet Dashboard API Router.
 PRD §14.7: Fleet summary, priority at-risk machines, recent anomalies, alerts, and risk distribution.
 """
 
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, Query
@@ -80,6 +81,7 @@ def get_dashboard_summary(
         operational_counts=operational_counts,
         active_count=active_count,
         maintenance_count=maintenance_count,
+        server_time=datetime.now(timezone.utc),
     )
 
 
